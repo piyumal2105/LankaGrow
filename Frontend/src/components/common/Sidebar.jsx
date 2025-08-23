@@ -11,7 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { useApp } from "../../context/AppContext";
+import { useApp } from "../../context/AppContext.jsx";
 
 const Sidebar = () => {
   const { activeTab, setActiveTab } = useApp();
