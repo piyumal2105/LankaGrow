@@ -30,3 +30,23 @@ export const SRI_LANKA_PROVINCES = [
   "Uva",
   "Sabaragamuwa",
 ];
+
+export const EXPENSE_CATEGORIES = [
+  "Office Supplies",
+  "Marketing",
+  "Travel",
+  "Utilities",
+  "Equipment",
+  "Professional Services",
+  "Inventory",
+  "Maintenance",
+  "Insurance",
+  "Rent",
+];
+
+export const PAYMENT_METHODS = [
+  { value: "cash", label: "Cash" },
+  { value: "card", label: "Credit/Debit Card" },
+  { value: "bank_transfer", label: "Bank Transfer" },
+  { value: "cheque", label: "Cheque" },
+];
