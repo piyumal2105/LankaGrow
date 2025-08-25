@@ -2,14 +2,14 @@ import { useState, useCallback } from "react";
 import { validateForm } from "../utils/validation";
 
 export const useForm = (initialValues = {}, validationRules = {}) => {
-  const [values, setValues] = useState(initialValues);
+  const [values, setValuesState] = useState(initialValues);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const setValue = useCallback(
     (name, value) => {
-      setValues((prev) => ({
+      setValuesState((prev) => ({
         ...prev,
         [name]: value,
       }));
