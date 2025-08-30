@@ -114,7 +114,7 @@ export const deleteInvoice = async (req, res) => {
       }
     }
 
-    await invoice.remove();
+    await invoice.deleteOne();
     res.json({ success: true, message: "Invoice deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -192,57 +192,64 @@ export const updateInvoice = async (req, res) => {
   try {
     const { customer, items, dueDate, notes } = req.body;
     const invoice = await Invoice.findById(req.params.id);
+
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
     }
 
-    // Restore previous stock
-    for (const item of invoice.items) {
-      const product = await Product.findById(item.product);
-      if (product) {
-        product.currentStock += item.quantity;
+    // Only process items if they are provided and are an array
+    if (items && Array.isArray(items)) {
+      // Restore previous stock
+      for (const item of invoice.items) {
+        const product = await Product.findById(item.product);
+        if (product) {
+          product.currentStock += item.quantity;
+          await product.save();
+        }
+      }
+
+      // Calculate new totals
+      let subtotal = 0;
+      const processedItems = [];
+
+      for (const item of items) {
+        const product = await Product.findById(item.product);
+        if (!product) {
+          return res
+            .status(400)
+            .json({ message: `Product not found: ${item.product}` });
+        }
+
+        const itemTotal = item.quantity * item.unitPrice - (item.discount || 0);
+        subtotal += itemTotal;
+
+        processedItems.push({
+          ...item,
+          productName: product.name,
+          total: itemTotal,
+        });
+
+        // Update stock
+        product.currentStock -= item.quantity;
         await product.save();
       }
+
+      const taxRate = 0; // Configure based on business needs
+      const taxAmount = subtotal * (taxRate / 100);
+      const totalAmount = subtotal + taxAmount;
+
+      // Update invoice with new items and calculations
+      invoice.items = processedItems;
+      invoice.subtotal = subtotal;
+      invoice.taxRate = taxRate;
+      invoice.taxAmount = taxAmount;
+      invoice.totalAmount = totalAmount;
     }
 
-    // Calculate new totals
-    let subtotal = 0;
-    const processedItems = [];
-
-    for (const item of items) {
-      const product = await Product.findById(item.product);
-      if (!product) {
-        return res
-          .status(400)
-          .json({ message: `Product not found: ${item.product}` });
-      }
-
-      const itemTotal = item.quantity * item.unitPrice - (item.discount || 0);
-      subtotal += itemTotal;
-
-      processedItems.push({
-        ...item,
-        productName: product.name,
-        total: itemTotal,
-      });
-
-      // Update stock
-      product.currentStock -= item.quantity;
-      await product.save();
-    }
-
-    const taxRate = 0; // Configure based on business needs
-    const taxAmount = subtotal * (taxRate / 100);
-    const totalAmount = subtotal + taxAmount;
-
-    invoice.customer = customer;
-    invoice.items = processedItems;
-    invoice.subtotal = subtotal;
-    invoice.taxRate = taxRate;
-    invoice.taxAmount = taxAmount;
-    invoice.totalAmount = totalAmount;
-    invoice.dueDate = dueDate;
-    invoice.notes = notes;
+    // Update other fields if provided
+    if (customer) invoice.customer = customer;
+    if (dueDate) invoice.dueDate = dueDate;
+    if (notes !== undefined) invoice.notes = notes;
 
     await invoice.save();
     res.json({ success: true, data: invoice });
