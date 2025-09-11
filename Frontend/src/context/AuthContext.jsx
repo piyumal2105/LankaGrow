@@ -3,6 +3,7 @@ import { authService } from "../services/authService";
 import toast from "react-hot-toast";
 
 const AuthContext = createContext();
+export { AuthContext };
 
 const initialState = {
   user: null,
@@ -125,10 +126,4 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-};
+
