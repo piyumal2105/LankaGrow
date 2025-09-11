@@ -15,7 +15,7 @@ function AIFeatures() {
       icon: Brain,
       title: "Predictive Sales Forecasting",
       description:
-        "AI analyzes your sales patterns, seasonal trends, and local market data to predict future revenue with 85% accuracy.",
+        "AI analyzes your sales patterns, seasonal trends, and local market data to predict future revenue.",
       stats: "85% Accuracy",
       color: "from-blue-600 to-purple-600",
       delay: 0,
