@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useQuery } from "react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Menu, Plus, Search, Filter, Upload } from "lucide-react";
 import Sidebar from "../components/common/Sidebar";
 import ExpenseList from "../components/expenses/ExpenseList";

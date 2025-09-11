@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -127,7 +127,7 @@
   }
 
   .sidebar-nav-item {
-    @apply group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200;
+    @apply flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200;
   }
 
   .sidebar-nav-item-active {

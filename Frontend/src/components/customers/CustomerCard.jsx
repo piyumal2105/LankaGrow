@@ -11,7 +11,7 @@ import {
   Star,
   TrendingUp,
 } from "lucide-react";
-import { useMutation, useQueryClient } from "react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { customerService } from "../../services/customerService";
 import { formatCurrency, formatDate } from "../../utils/formatters";

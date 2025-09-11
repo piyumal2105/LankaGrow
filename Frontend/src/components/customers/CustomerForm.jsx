@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useMutation, useQueryClient } from "react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { User, Building, Mail, Phone, MapPin, CreditCard } from "lucide-react";
 import { customerService } from "../../services/customerService";

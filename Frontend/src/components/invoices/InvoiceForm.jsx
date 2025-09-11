@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
-import { useMutation, useQueryClient, useQuery } from "react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import {
   Plus,
