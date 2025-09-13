@@ -5,6 +5,7 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
 };
 
+// Alternative: Modify authController.js register function
 export const register = async (req, res) => {
   try {
     const {
@@ -34,19 +35,18 @@ export const register = async (req, res) => {
 
     const token = generateToken(user._id);
 
+    // Simplified response structure to match frontend expectations
     res.status(201).json({
       success: true,
-      data: {
-        user: {
-          id: user._id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          role: user.role,
-          businessName: user.businessName,
-        },
-        token,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        businessName: user.businessName,
       },
+      token,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

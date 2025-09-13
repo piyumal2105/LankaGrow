@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from "react";
+import React, { createContext, useReducer, useEffect } from "react";
 import { authService } from "../services/authService";
 import toast from "react-hot-toast";
 
@@ -50,7 +50,11 @@ export function AuthProvider({ children }) {
       const token = localStorage.getItem("token");
       if (token) {
         try {
-          const user = await authService.getProfile();
+          const response = await authService.getProfile();
+          // Handle different response structures - check if response has nested data
+          const user =
+            response.data.data?.user || response.data.user || response.data;
+
           dispatch({
             type: "LOGIN_SUCCESS",
             payload: { user, token },
@@ -70,7 +74,8 @@ export function AuthProvider({ children }) {
   const login = async (credentials) => {
     try {
       const response = await authService.login(credentials);
-      const { user, token } = response.data;
+      // Fix: Access nested data structure from backend
+      const { user, token } = response.data.data || response.data;
 
       localStorage.setItem("token", token);
       dispatch({
@@ -89,7 +94,8 @@ export function AuthProvider({ children }) {
   const register = async (userData) => {
     try {
       const response = await authService.register(userData);
-      const { user, token } = response.data;
+      // Fix: Access nested data structure from backend
+      const { user, token } = response.data.data || response.data;
 
       localStorage.setItem("token", token);
       dispatch({
@@ -125,5 +131,3 @@ export function AuthProvider({ children }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
-
