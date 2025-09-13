@@ -1,8 +1,42 @@
+/* Remove the constraining styles that might affect the sidebar */
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/* Add these styles to ensure proper layout */
+body,
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden; /* Prevent horizontal scroll issues */
+}
+
+/* Ensure smooth transitions and proper z-index stacking */
+.sidebar-backdrop {
+  z-index: 20;
+}
+
+.sidebar-mobile {
+  z-index: 30;
+}
+
+.sidebar-desktop {
+  z-index: 10;
+}
+
+/* Optional: Add smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Ensure main content area is properly positioned */
+.main-content {
+  transition: margin-left 0.3s ease-in-out;
 }
 
 .logo {

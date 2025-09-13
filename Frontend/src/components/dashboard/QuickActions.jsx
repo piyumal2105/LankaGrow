@@ -14,7 +14,7 @@ function QuickActions() {
   const actions = [
     {
       title: "Add Product",
-      description: "Add new products to your inventory",
+      description: "Add new products to inventory",
       icon: Package,
       href: "/products/new",
       color: "blue",

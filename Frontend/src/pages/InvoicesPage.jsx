@@ -23,22 +23,20 @@ function InvoicesPage() {
     data: invoices,
     isLoading,
     refetch,
-  } = useQuery(
-    ["invoices", { search: debouncedSearch, status: selectedStatus }],
-    () =>
+  } = useQuery({
+    queryKey: ["invoices", { search: debouncedSearch, status: selectedStatus }],
+    queryFn: () =>
       invoiceService.getInvoices({
         search: debouncedSearch,
         status: selectedStatus,
       }),
-    {
-      keepPreviousData: true,
-    }
-  );
+    placeholderData: keepPreviousData,
+  });
 
-  const { data: overdueInvoices } = useQuery(
-    "overdue-invoices",
-    invoiceService.getOverdueInvoices
-  );
+  const { data: overdueInvoices } = useQuery({
+    queryKey: ["overdue-invoices"],
+    queryFn: invoiceService.getOverdueInvoices,
+  });
 
   const handleCreateInvoice = () => {
     setEditingInvoice(null);

@@ -24,8 +24,8 @@ function ProductsPage() {
     data: products,
     isLoading,
     refetch,
-  } = useQuery(
-    [
+  } = useQuery({
+    queryKey: [
       "products",
       {
         search: debouncedSearch,
@@ -33,21 +33,19 @@ function ProductsPage() {
         status: selectedStatus,
       },
     ],
-    () =>
+    queryFn: () =>
       productService.getProducts({
         search: debouncedSearch,
         category: selectedCategory,
         status: selectedStatus,
       }),
-    {
-      keepPreviousData: true,
-    }
-  );
+    placeholderData: keepPreviousData,
+  });
 
-  const { data: lowStockProducts } = useQuery(
-    "low-stock-products",
-    productService.getLowStockProducts
-  );
+  const { data: lowStockProducts } = useQuery({
+    queryKey: ["low-stock-products"],
+    queryFn: productService.getLowStockProducts,
+  });
 
   const handleCreateProduct = () => {
     setEditingProduct(null);

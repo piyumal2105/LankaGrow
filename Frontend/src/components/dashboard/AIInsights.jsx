@@ -13,13 +13,10 @@ import { reportService } from "../../services/reportService";
 import LoadingSpinner from "../common/LoadingSpinner";
 
 function AIInsights() {
-  const { data: insights, isLoading } = useQuery(
-    "ai-insights",
-    reportService.getAIInsights,
-    {
-      refetchInterval: 300000, // Refetch every 5 minutes
-    }
-  );
+  const { data: aiInsights, isLoading } = useQuery({
+    queryKey: ["ai-insights"],
+    queryFn: reportService.getAIInsights,
+  });
 
   if (isLoading) {
     return (

@@ -15,10 +15,10 @@ import { formatDistanceToNow } from "date-fns";
 import LoadingSpinner from "../common/LoadingSpinner";
 
 function RecentActivity() {
-  const { data: stats, isLoading } = useQuery(
-    "dashboard-stats",
-    reportService.getDashboardStats
-  );
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: reportService.getDashboardStats,
+  });
 
   if (isLoading) {
     return (

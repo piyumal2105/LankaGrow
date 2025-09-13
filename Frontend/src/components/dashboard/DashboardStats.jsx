@@ -19,8 +19,10 @@ function DashboardStats() {
     data: stats,
     isLoading,
     error,
-  } = useQuery("dashboard-stats", reportService.getDashboardStats, {
-    refetchInterval: 60000, // Refetch every minute
+  } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: reportService.getDashboardStats,
+    refetchInterval: 60000,
   });
 
   if (isLoading) {

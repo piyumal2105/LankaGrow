@@ -25,17 +25,18 @@ function ExpensesPage() {
     data: expenses,
     isLoading,
     refetch,
-  } = useQuery(
-    ["expenses", { search: debouncedSearch, category: selectedCategory }],
-    () =>
+  } = useQuery({
+    queryKey: [
+      "expenses",
+      { search: debouncedSearch, category: selectedCategory },
+    ],
+    queryFn: () =>
       expenseService.getExpenses({
         search: debouncedSearch,
         category: selectedCategory,
       }),
-    {
-      keepPreviousData: true,
-    }
-  );
+    placeholderData: keepPreviousData,
+  });
 
   const handleCreateExpense = () => {
     setEditingExpense(null);

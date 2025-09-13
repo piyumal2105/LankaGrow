@@ -10,12 +10,13 @@ function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Main content with proper left margin for desktop sidebar */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:ml-80">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
+        <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
@@ -25,8 +26,10 @@ function DashboardPage() {
                 <Menu className="w-6 h-6" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-                <p className="text-gray-600">
+                <h1 className="text-xl lg:text-2xl font-bold text-gray-900">
+                  Dashboard
+                </h1>
+                <p className="text-sm lg:text-base text-gray-600">
                   Welcome back! Here's what's happening with your business.
                 </p>
               </div>
@@ -35,7 +38,7 @@ function DashboardPage() {
         </header>
 
         {/* Main content */}
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-4 lg:p-6">
           <div className="max-w-7xl mx-auto space-y-6">
             {/* Stats */}
             <DashboardStats />

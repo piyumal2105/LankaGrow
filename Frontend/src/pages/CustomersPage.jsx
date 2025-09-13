@@ -24,22 +24,23 @@ function CustomersPage() {
     data: customers,
     isLoading,
     refetch,
-  } = useQuery(
-    ["customers", { search: debouncedSearch, customerType: selectedType }],
-    () =>
+  } = useQuery({
+    queryKey: [
+      "customers",
+      { search: debouncedSearch, customerType: selectedType },
+    ],
+    queryFn: () =>
       customerService.getCustomers({
         search: debouncedSearch,
         customerType: selectedType,
       }),
-    {
-      keepPreviousData: true,
-    }
-  );
+    placeholderData: keepPreviousData,
+  });
 
-  const { data: topCustomers } = useQuery(
-    "top-customers",
-    customerService.getTopCustomers
-  );
+  const { data: topCustomers } = useQuery({
+    queryKey: ["top-customers"],
+    queryFn: customerService.getTopCustomers,
+  });
 
   const handleCreateCustomer = () => {
     setEditingCustomer(null);
