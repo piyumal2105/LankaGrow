@@ -1,12 +1,12 @@
 import express from "express";
 import {
-  createProduct, //
-  getProducts, //
-  getProduct, //
-  updateProduct, //
-  deleteProduct, //
-  updateStock, //
-  getLowStockProducts, 
+  createProduct,
+  getProducts,
+  getProduct,
+  updateProduct,
+  deleteProduct,
+  updateStock,
+  getLowStockProducts,
   getProductAnalytics,
 } from "../controllers/productController.js";
 import { protect, authorize } from "../middleware/auth.js";
