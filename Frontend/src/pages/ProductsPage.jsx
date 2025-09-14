@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom"; // Add this import
 import { Menu, Plus, Search, Filter } from "lucide-react";
 import Sidebar from "../components/common/Sidebar";
 import ProductList from "../components/products/ProductList";
@@ -18,11 +19,24 @@ function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
 
+  // Add URL parameter handling
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterParam = searchParams.get("filter");
+
   const debouncedSearch = useDebounce(searchTerm, 300);
 
+  // Handle URL filter parameter
+  useEffect(() => {
+    if (filterParam === "low-stock") {
+      // You can optionally set some visual indicator that we're filtering
+      // or leave the filters as they are since we'll handle this in the query
+    }
+  }, [filterParam]);
+
   const {
-    data: products,
+    data: productsResponse,
     isLoading,
+    error,
     refetch,
   } = useQuery({
     queryKey: [
@@ -31,6 +45,7 @@ function ProductsPage() {
         search: debouncedSearch,
         category: selectedCategory,
         status: selectedStatus,
+        filter: filterParam, // Include the URL filter parameter
       },
     ],
     queryFn: () =>
@@ -38,14 +53,65 @@ function ProductsPage() {
         search: debouncedSearch,
         category: selectedCategory,
         status: selectedStatus,
+        filter: filterParam, // Pass filter to the service
       }),
-    placeholderData: keepPreviousData,
   });
 
-  const { data: lowStockProducts } = useQuery({
+  const { data: lowStockResponse } = useQuery({
     queryKey: ["low-stock-products"],
     queryFn: productService.getLowStockProducts,
   });
+
+  // Debug logging
+  console.log("Products response:", productsResponse);
+  console.log("Error:", error);
+  console.log("Filter param:", filterParam);
+
+  // Safely extract the products array from the response
+  const getProductsArray = () => {
+    if (!productsResponse) return [];
+
+    // Handle different API response structures
+    if (Array.isArray(productsResponse)) {
+      return productsResponse;
+    }
+
+    if (productsResponse.data && Array.isArray(productsResponse.data)) {
+      return productsResponse.data;
+    }
+
+    if (productsResponse.products && Array.isArray(productsResponse.products)) {
+      return productsResponse.products;
+    }
+
+    // If none of the above, return empty array
+    console.warn("Unexpected products response structure:", productsResponse);
+    return [];
+  };
+
+  const getLowStockArray = () => {
+    if (!lowStockResponse) return [];
+
+    if (Array.isArray(lowStockResponse)) {
+      return lowStockResponse;
+    }
+
+    if (lowStockResponse.data && Array.isArray(lowStockResponse.data)) {
+      return lowStockResponse.data;
+    }
+
+    return [];
+  };
+
+  let products = getProductsArray();
+  const lowStockProducts = getLowStockArray();
+
+  // Client-side filtering for low-stock if backend doesn't support it
+  if (filterParam === "low-stock" && products.length > 0) {
+    products = products.filter(
+      (product) => product.currentStock <= product.minStockLevel
+    );
+  }
 
   const handleCreateProduct = () => {
     setEditingProduct(null);
@@ -63,6 +129,31 @@ function ProductsPage() {
     refetch();
   };
 
+  // Clear URL filter when user changes other filters
+  const handleCategoryChange = (value) => {
+    setSelectedCategory(value === "All Categories" ? "" : value);
+    // Clear the URL filter when user manually changes filters
+    if (filterParam) {
+      setSearchParams({});
+    }
+  };
+
+  const handleStatusChange = (value) => {
+    setSelectedStatus(value === "All Status" ? "" : value);
+    // Clear the URL filter when user manually changes filters
+    if (filterParam) {
+      setSearchParams({});
+    }
+  };
+
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    // Clear the URL filter when user manually searches
+    if (filterParam && value) {
+      setSearchParams({});
+    }
+  };
+
   const categories = [
     "All Categories",
     "Electronics",
@@ -78,11 +169,34 @@ function ProductsPage() {
 
   const statuses = ["All Status", "active", "inactive"];
 
+  // Handle error state
+  if (error) {
+    return (
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:ml-80">
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Failed to Load Products
+              </h2>
+              <p className="text-gray-600 mb-4">
+                {error.message || "Something went wrong"}
+              </p>
+              <Button onClick={refetch}>Try Again</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:ml-80">
         {/* Header */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -97,6 +211,11 @@ function ProductsPage() {
                 <h1 className="text-2xl font-bold text-gray-900">Products</h1>
                 <p className="text-gray-600">
                   Manage your product inventory with AI-powered insights
+                  {filterParam === "low-stock" && (
+                    <span className="ml-2 px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                      Showing Low Stock Items
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -110,10 +229,22 @@ function ProductsPage() {
           </div>
         </header>
 
-        {/* Low stock alert */}
-        {lowStockProducts?.data?.length > 0 && (
+        {/* Low stock alert - hide when already filtering for low stock */}
+        {!filterParam && lowStockProducts.length > 0 && (
           <div className="px-6 py-4">
-            <LowStockAlert products={lowStockProducts.data} />
+            <LowStockAlert products={lowStockProducts} />
+          </div>
+        )}
+
+        {/* Clear filter button when filtering */}
+        {filterParam && (
+          <div className="px-6 py-2">
+            <button
+              onClick={() => setSearchParams({})}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              ← Clear filter and show all products
+            </button>
           </div>
         )}
 
@@ -127,7 +258,7 @@ function ProductsPage() {
                 type="text"
                 placeholder="Search products..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -136,11 +267,7 @@ function ProductsPage() {
             <div className="relative">
               <select
                 value={selectedCategory}
-                onChange={(e) =>
-                  setSelectedCategory(
-                    e.target.value === "All Categories" ? "" : e.target.value
-                  )
-                }
+                onChange={(e) => handleCategoryChange(e.target.value)}
                 className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 {categories.map((category) => (
@@ -156,11 +283,7 @@ function ProductsPage() {
             <div className="relative">
               <select
                 value={selectedStatus}
-                onChange={(e) =>
-                  setSelectedStatus(
-                    e.target.value === "All Status" ? "" : e.target.value
-                  )
-                }
+                onChange={(e) => handleStatusChange(e.target.value)}
                 className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 {statuses.map((status) => (
@@ -177,7 +300,7 @@ function ProductsPage() {
         {/* Main content */}
         <main className="flex-1 overflow-auto p-6">
           <ProductList
-            products={products?.data || []}
+            products={products}
             isLoading={isLoading}
             onEdit={handleEditProduct}
             onRefresh={refetch}

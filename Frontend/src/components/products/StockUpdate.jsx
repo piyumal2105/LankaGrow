@@ -30,27 +30,27 @@ function StockUpdate({ product, onClose, onSuccess }) {
       ? product.currentStock + (parseInt(watchQuantity) || 0)
       : Math.max(0, product.currentStock - (parseInt(watchQuantity) || 0));
 
-  const updateStockMutation = useMutation(
-    (data) => productService.updateStock(product._id, data),
-    {
-      onSuccess: (response) => {
-        if (response.data.aiSuggestion) {
-          toast.success(
-            `Stock updated! AI suggests reordering ${response.data.aiSuggestion.suggested_quantity} units.`,
-            { duration: 6000 }
-          );
-        } else {
-          toast.success("Stock updated successfully");
-        }
-        queryClient.invalidateQueries("products");
-        queryClient.invalidateQueries("low-stock-products");
-        onSuccess();
-      },
-      onError: (error) => {
-        toast.error(error.response?.data?.message || "Failed to update stock");
-      },
-    }
-  );
+  // Fixed TanStack Query v5 syntax
+  const updateStockMutation = useMutation({
+    mutationFn: (data) => productService.updateStock(product._id, data),
+    onSuccess: (response) => {
+      if (response.data && response.data.aiSuggestion) {
+        toast.success(
+          `Stock updated! AI suggests reordering ${response.data.aiSuggestion.suggested_quantity} units.`,
+          { duration: 6000 }
+        );
+      } else {
+        toast.success("Stock updated successfully");
+      }
+      // Fixed invalidateQueries syntax for v5
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["low-stock-products"] });
+      onSuccess();
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || "Failed to update stock");
+    },
+  });
 
   const onSubmit = (data) => {
     updateStockMutation.mutate({
@@ -207,7 +207,7 @@ function StockUpdate({ product, onClose, onSuccess }) {
           </Button>
           <Button
             type="submit"
-            loading={isSubmitting}
+            loading={updateStockMutation.isPending}
             className="flex-1"
             variant={updateType === "add" ? "success" : "warning"}
           >
