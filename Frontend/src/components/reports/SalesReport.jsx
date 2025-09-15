@@ -15,10 +15,10 @@ import { formatCurrency } from "../../utils/formatters";
 import LoadingSpinner from "../common/LoadingSpinner";
 
 function SalesReport({ dateRange }) {
-  const { data: salesData, isLoading } = useQuery(
-    ["sales-report", dateRange],
-    () => reportService.getSalesReport(dateRange)
-  );
+  const { data: salesData, isLoading } = useQuery({
+    queryKey: ["sales-report", dateRange],
+    queryFn: () => reportService.getSalesReport(dateRange),
+  });
 
   if (isLoading) {
     return (
@@ -28,31 +28,23 @@ function SalesReport({ dateRange }) {
     );
   }
 
-  // Sample data
-  const monthlySales = [
-    { month: "Jan", sales: 125000, orders: 45 },
-    { month: "Feb", sales: 145000, orders: 52 },
-    { month: "Mar", sales: 135000, orders: 48 },
-    { month: "Apr", sales: 165000, orders: 58 },
-    { month: "May", sales: 155000, orders: 55 },
-    { month: "Jun", sales: 175000, orders: 62 },
-  ];
+  const data = salesData?.data || {};
+  const totalSales = data.totalSales || 0;
+  const invoiceCount = data.invoiceCount || 0;
+  const averageOrderValue = invoiceCount > 0 ? totalSales / invoiceCount : 0;
 
-  const topProducts = [
-    { name: "iPhone 15", sales: 45000, quantity: 15 },
-    { name: "Samsung Galaxy S24", sales: 38000, quantity: 12 },
-    { name: "MacBook Air", sales: 35000, quantity: 8 },
-    { name: "iPad Pro", sales: 28000, quantity: 10 },
-    { name: "AirPods Pro", sales: 22000, quantity: 25 },
-  ];
+  // Process sales by product data for chart
+  const productSalesChart = (data.salesByProduct || []).map((product) => ({
+    month: product._id,
+    sales: product.totalSales,
+    orders: product.totalQuantitySold,
+  }));
 
-  const topCustomers = [
-    { name: "TechCorp Solutions", sales: 85000, orders: 12 },
-    { name: "Digital Enterprises", sales: 72000, orders: 8 },
-    { name: "Innovation Labs", sales: 68000, orders: 10 },
-    { name: "Future Systems", sales: 55000, orders: 7 },
-    { name: "Smart Solutions", sales: 48000, orders: 6 },
-  ];
+  // Top customers data
+  const topCustomers = data.salesByCustomer || [];
+
+  // Top products data
+  const topProducts = data.salesByProduct || [];
 
   return (
     <div className="space-y-6">
@@ -67,9 +59,9 @@ function SalesReport({ dateRange }) {
             Total Sales
           </h3>
           <p className="text-3xl font-bold text-green-600">
-            {formatCurrency(salesData?.data?.totalSales || 945000)}
+            {formatCurrency(totalSales)}
           </p>
-          <p className="text-sm text-gray-500">+18% from last period</p>
+          <p className="text-sm text-gray-500">Total revenue from sales</p>
         </motion.div>
 
         <motion.div
@@ -81,10 +73,8 @@ function SalesReport({ dateRange }) {
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             Total Orders
           </h3>
-          <p className="text-3xl font-bold text-blue-600">
-            {salesData?.data?.invoiceCount || 320}
-          </p>
-          <p className="text-sm text-gray-500">+12% from last period</p>
+          <p className="text-3xl font-bold text-blue-600">{invoiceCount}</p>
+          <p className="text-sm text-gray-500">Number of completed orders</p>
         </motion.div>
 
         <motion.div
@@ -94,12 +84,12 @@ function SalesReport({ dateRange }) {
           className="card"
         >
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Average Order
+            Average Order Value
           </h3>
           <p className="text-3xl font-bold text-purple-600">
-            {formatCurrency(2953)}
+            {formatCurrency(averageOrderValue)}
           </p>
-          <p className="text-sm text-gray-500">+5% from last period</p>
+          <p className="text-sm text-gray-500">Average per order</p>
         </motion.div>
 
         <motion.div
@@ -109,10 +99,15 @@ function SalesReport({ dateRange }) {
           className="card"
         >
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Conversion Rate
+            Products Sold
           </h3>
-          <p className="text-3xl font-bold text-yellow-600">24.5%</p>
-          <p className="text-sm text-gray-500">+2.1% from last period</p>
+          <p className="text-3xl font-bold text-yellow-600">
+            {topProducts.reduce(
+              (sum, product) => sum + (product.totalQuantitySold || 0),
+              0
+            )}
+          </p>
+          <p className="text-sm text-gray-500">Total units sold</p>
         </motion.div>
       </div>
 
@@ -125,24 +120,35 @@ function SalesReport({ dateRange }) {
       >
         <div className="card-header">
           <h3 className="text-lg font-semibold text-gray-900">
-            Monthly Sales Trend
+            Sales by Product
           </h3>
         </div>
         <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={monthlySales}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip
-                formatter={(value, name) => [
-                  name === "sales" ? formatCurrency(value) : value,
-                  name === "sales" ? "Sales" : "Orders",
-                ]}
-              />
-              <Bar dataKey="sales" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {productSalesChart.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={productSalesChart}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="month"
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis />
+                <Tooltip
+                  formatter={(value, name) => [
+                    name === "sales" ? formatCurrency(value) : value,
+                    name === "sales" ? "Sales" : "Quantity",
+                  ]}
+                />
+                <Bar dataKey="sales" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              No sales data available for the selected period
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -161,22 +167,28 @@ function SalesReport({ dateRange }) {
             </h3>
           </div>
           <div className="space-y-4">
-            {topProducts.map((product, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-              >
-                <div>
-                  <p className="font-medium text-gray-900">{product.name}</p>
-                  <p className="text-sm text-gray-500">
-                    {product.quantity} units sold
+            {topProducts.length > 0 ? (
+              topProducts.slice(0, 5).map((product, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                >
+                  <div>
+                    <p className="font-medium text-gray-900">{product._id}</p>
+                    <p className="text-sm text-gray-500">
+                      {product.totalQuantitySold} units sold
+                    </p>
+                  </div>
+                  <p className="font-bold text-gray-900">
+                    {formatCurrency(product.totalSales)}
                   </p>
                 </div>
-                <p className="font-bold text-gray-900">
-                  {formatCurrency(product.sales)}
-                </p>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No product sales data available
               </div>
-            ))}
+            )}
           </div>
         </motion.div>
 
@@ -193,25 +205,70 @@ function SalesReport({ dateRange }) {
             </h3>
           </div>
           <div className="space-y-4">
-            {topCustomers.map((customer, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-              >
-                <div>
-                  <p className="font-medium text-gray-900">{customer.name}</p>
-                  <p className="text-sm text-gray-500">
-                    {customer.orders} orders
+            {topCustomers.length > 0 ? (
+              topCustomers.slice(0, 5).map((customer, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                >
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {customer.customerName ||
+                        `Customer #${customer.customerId}`}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {customer.invoiceCount} orders
+                    </p>
+                  </div>
+                  <p className="font-bold text-gray-900">
+                    {formatCurrency(customer.totalSales)}
                   </p>
                 </div>
-                <p className="font-bold text-gray-900">
-                  {formatCurrency(customer.sales)}
-                </p>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No customer sales data available
               </div>
-            ))}
+            )}
           </div>
         </motion.div>
       </div>
+
+      {/* Sales Summary */}
+      {totalSales > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="card bg-gradient-to-r from-blue-50 to-green-50"
+        >
+          <div className="card-header">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Sales Summary
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-blue-600">
+                {formatCurrency(totalSales)}
+              </p>
+              <p className="text-sm text-gray-600">Total Revenue</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-green-600">
+                {invoiceCount}
+              </p>
+              <p className="text-sm text-gray-600">Total Orders</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-purple-600">
+                {topProducts.length}
+              </p>
+              <p className="text-sm text-gray-600">Products Sold</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

@@ -16,10 +16,10 @@ import { formatCurrency } from "../../utils/formatters";
 import LoadingSpinner from "../common/LoadingSpinner";
 
 function InventoryReport() {
-  const { data: inventoryData, isLoading } = useQuery(
-    "inventory-report",
-    reportService.getInventoryReport
-  );
+  const { data: inventoryData, isLoading } = useQuery({
+    queryKey: ["inventory-report"],
+    queryFn: reportService.getInventoryReport,
+  });
 
   if (isLoading) {
     return (
@@ -29,62 +29,53 @@ function InventoryReport() {
     );
   }
 
-  // Sample data
-  const data = inventoryData?.data || {
-    totalProducts: 1250,
-    lowStockProducts: [],
-    stockValuation: 2850000,
-  };
+  const data = inventoryData?.data || {};
+  const totalProducts = data.totalProducts || 0;
+  const lowStockProducts = data.lowStockProducts || [];
+  const stockValuation = data.stockValuation || 0;
+  const products = data.products || [];
 
-  const categoryStock = [
-    { category: "Electronics", products: 425, value: 1250000 },
-    { category: "Clothing", products: 380, value: 680000 },
-    { category: "Food & Beverage", products: 220, value: 450000 },
-    { category: "Books", products: 125, value: 285000 },
-    { category: "Home & Garden", products: 100, value: 185000 },
-  ];
+  // Group products by category for chart
+  const categoryStock = products.reduce((acc, product) => {
+    const category = product.category || "Uncategorized";
+    if (!acc[category]) {
+      acc[category] = {
+        category,
+        products: 0,
+        value: 0,
+        currentStock: 0,
+      };
+    }
+    acc[category].products += 1;
+    acc[category].value +=
+      (product.currentStock || 0) * (product.unitPrice || 0);
+    acc[category].currentStock += product.currentStock || 0;
+    return acc;
+  }, {});
 
-  const stockMovement = [
-    { month: "Jan", inbound: 450, outbound: 380, net: 70 },
-    { month: "Feb", inbound: 520, outbound: 420, net: 100 },
-    { month: "Mar", inbound: 380, outbound: 450, net: -70 },
-    { month: "Apr", inbound: 680, outbound: 520, net: 160 },
-    { month: "May", inbound: 590, outbound: 480, net: 110 },
-    { month: "Jun", inbound: 720, outbound: 580, net: 140 },
-  ];
+  const categoryStockArray = Object.values(categoryStock);
 
-  const lowStockItems = [
-    {
-      name: "iPhone 15 Pro",
-      currentStock: 3,
-      minLevel: 5,
-      category: "Electronics",
-    },
-    {
-      name: "Samsung Galaxy S24",
-      currentStock: 2,
-      minLevel: 5,
-      category: "Electronics",
-    },
-    {
-      name: "MacBook Air M2",
-      currentStock: 1,
-      minLevel: 3,
-      category: "Electronics",
-    },
-    {
-      name: 'iPad Pro 12.9"',
-      currentStock: 4,
-      minLevel: 8,
-      category: "Electronics",
-    },
-    {
-      name: "AirPods Pro 2",
-      currentStock: 6,
-      minLevel: 10,
-      category: "Electronics",
-    },
-  ];
+  // Create stock movement data (you might want to enhance this with actual movement data)
+  const stockMovement = products.slice(0, 6).map((product, index) => ({
+    product:
+      product.name.length > 15
+        ? product.name.substring(0, 15) + "..."
+        : product.name,
+    current: product.currentStock || 0,
+    minimum: product.minStockLevel || 0,
+    status:
+      (product.currentStock || 0) <= (product.minStockLevel || 0)
+        ? "Low"
+        : "OK",
+  }));
+
+  // Calculate average turnover rate
+  const totalCurrentStock = products.reduce(
+    (sum, product) => sum + (product.currentStock || 0),
+    0
+  );
+  const averageStockValue =
+    totalCurrentStock > 0 ? stockValuation / totalCurrentStock : 0;
 
   return (
     <div className="space-y-6">
@@ -101,9 +92,9 @@ function InventoryReport() {
                 Total Products
               </h3>
               <p className="text-2xl font-bold text-blue-600">
-                {data.totalProducts}
+                {totalProducts}
               </p>
-              <p className="text-sm text-gray-500">+45 this month</p>
+              <p className="text-sm text-gray-500">Products in inventory</p>
             </div>
             <Package className="w-8 h-8 text-blue-500" />
           </div>
@@ -121,7 +112,7 @@ function InventoryReport() {
                 Low Stock Items
               </h3>
               <p className="text-2xl font-bold text-red-600">
-                {lowStockItems.length}
+                {lowStockProducts.length}
               </p>
               <p className="text-sm text-gray-500">Needs attention</p>
             </div>
@@ -141,9 +132,9 @@ function InventoryReport() {
                 Stock Valuation
               </h3>
               <p className="text-2xl font-bold text-green-600">
-                {formatCurrency(data.stockValuation)}
+                {formatCurrency(stockValuation)}
               </p>
-              <p className="text-sm text-gray-500">+12.5% vs last month</p>
+              <p className="text-sm text-gray-500">Total inventory value</p>
             </div>
             <BarChart3 className="w-8 h-8 text-green-500" />
           </div>
@@ -158,17 +149,19 @@ function InventoryReport() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-1">
-                Turnover Rate
+                Average Stock Value
               </h3>
-              <p className="text-2xl font-bold text-purple-600">4.2x</p>
-              <p className="text-sm text-gray-500">Annual turnover</p>
+              <p className="text-2xl font-bold text-purple-600">
+                {formatCurrency(averageStockValue)}
+              </p>
+              <p className="text-sm text-gray-500">Per unit average</p>
             </div>
             <TrendingDown className="w-8 h-8 text-purple-500" />
           </div>
         </motion.div>
       </div>
 
-      {/* Stock Movement Chart */}
+      {/* Stock Level Chart */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -177,21 +170,31 @@ function InventoryReport() {
       >
         <div className="card-header">
           <h3 className="text-lg font-semibold text-gray-900">
-            Stock Movement Trend
+            Current Stock Levels vs Minimum Stock
           </h3>
         </div>
         <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stockMovement}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="inbound" fill="#10B981" name="Inbound" />
-              <Bar dataKey="outbound" fill="#EF4444" name="Outbound" />
-              <Bar dataKey="net" fill="#3B82F6" name="Net Change" />
-            </BarChart>
-          </ResponsiveContainer>
+          {stockMovement.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stockMovement}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="product"
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="current" fill="#10B981" name="Current Stock" />
+                <Bar dataKey="minimum" fill="#EF4444" name="Minimum Level" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              No inventory data available
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -209,24 +212,31 @@ function InventoryReport() {
             </h3>
           </div>
           <div className="space-y-4">
-            {categoryStock.map((category, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-              >
-                <div>
-                  <p className="font-medium text-gray-900">
-                    {category.category}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {category.products} products
+            {categoryStockArray.length > 0 ? (
+              categoryStockArray.map((category, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                >
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {category.category}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {category.products} products • {category.currentStock}{" "}
+                      units
+                    </p>
+                  </div>
+                  <p className="font-bold text-gray-900">
+                    {formatCurrency(category.value)}
                   </p>
                 </div>
-                <p className="font-bold text-gray-900">
-                  {formatCurrency(category.value)}
-                </p>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No category data available
               </div>
-            ))}
+            )}
           </div>
         </motion.div>
 
@@ -244,26 +254,103 @@ function InventoryReport() {
             </h3>
           </div>
           <div className="space-y-3">
-            {lowStockItems.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
-              >
-                <div>
-                  <p className="font-medium text-gray-900">{item.name}</p>
-                  <p className="text-sm text-gray-500">{item.category}</p>
+            {lowStockProducts.length > 0 ? (
+              lowStockProducts.slice(0, 10).map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
+                >
+                  <div>
+                    <p className="font-medium text-gray-900">{item.name}</p>
+                    <p className="text-sm text-gray-500">
+                      Category: {item.category || "Uncategorized"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-red-600">
+                      {item.currentStock}/{item.minStockLevel}
+                    </p>
+                    <p className="text-xs text-red-500">Current/Min level</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-red-600">
-                    {item.currentStock}/{item.minLevel}
-                  </p>
-                  <p className="text-xs text-red-500">Min level</p>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-green-500">
+                <Package className="w-12 h-12 mx-auto mb-2" />
+                <p>All products are adequately stocked!</p>
               </div>
-            ))}
+            )}
           </div>
         </motion.div>
       </div>
+
+      {/* Inventory Summary */}
+      {totalProducts > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="card bg-gradient-to-r from-blue-50 to-green-50"
+        >
+          <div className="card-header">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Inventory Summary
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-blue-600">
+                {totalProducts}
+              </p>
+              <p className="text-sm text-gray-600">Total Products</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-green-600">
+                {formatCurrency(stockValuation)}
+              </p>
+              <p className="text-sm text-gray-600">Total Value</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-red-600">
+                {lowStockProducts.length}
+              </p>
+              <p className="text-sm text-gray-600">Low Stock Items</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-purple-600">
+                {categoryStockArray.length}
+              </p>
+              <p className="text-sm text-gray-600">Categories</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Stock Alerts */}
+      {lowStockProducts.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          className="card border-l-4 border-red-500 bg-red-50"
+        >
+          <div className="flex items-center space-x-3 mb-4">
+            <AlertTriangle className="w-6 h-6 text-red-500" />
+            <h3 className="text-lg font-semibold text-red-800">
+              Action Required
+            </h3>
+          </div>
+          <p className="text-red-700 mb-3">
+            You have {lowStockProducts.length} product(s) below minimum stock
+            levels. Consider reordering these items to avoid stockouts.
+          </p>
+          <div className="flex space-x-2">
+            <span className="px-3 py-1 bg-red-100 text-red-800 text-sm rounded-full">
+              {lowStockProducts.length} Items Need Attention
+            </span>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

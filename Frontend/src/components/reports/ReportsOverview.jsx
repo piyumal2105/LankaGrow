@@ -30,10 +30,22 @@ import { formatCurrency, formatPercentage } from "../../utils/formatters";
 import LoadingSpinner from "../common/LoadingSpinner";
 
 function ReportsOverview({ dateRange }) {
-  const { data: dashboardStats, isLoading } = useQuery(
-    "dashboard-stats",
-    reportService.getDashboardStats
-  );
+  const { data: dashboardStats, isLoading: dashboardLoading } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: reportService.getDashboardStats,
+  });
+
+  const { data: salesData, isLoading: salesLoading } = useQuery({
+    queryKey: ["sales-report", dateRange],
+    queryFn: () => reportService.getSalesReport(dateRange),
+  });
+
+  const { data: profitLossData, isLoading: profitLossLoading } = useQuery({
+    queryKey: ["profit-loss-report", dateRange],
+    queryFn: () => reportService.getProfitLossReport(dateRange),
+  });
+
+  const isLoading = dashboardLoading || salesLoading || profitLossLoading;
 
   if (isLoading) {
     return (
@@ -43,38 +55,22 @@ function ReportsOverview({ dateRange }) {
     );
   }
 
-  // Sample data for charts
-  const monthlyRevenue = [
-    { month: "Jan", revenue: 125000, expenses: 85000, profit: 40000 },
-    { month: "Feb", revenue: 145000, expenses: 92000, profit: 53000 },
-    { month: "Mar", revenue: 135000, expenses: 88000, profit: 47000 },
-    { month: "Apr", revenue: 165000, expenses: 95000, profit: 70000 },
-    { month: "May", revenue: 155000, expenses: 90000, profit: 65000 },
-    { month: "Jun", revenue: 175000, expenses: 98000, profit: 77000 },
-  ];
-
-  const categoryData = [
-    { name: "Electronics", value: 35, color: "#3B82F6" },
-    { name: "Clothing", value: 25, color: "#10B981" },
-    { name: "Food & Beverage", value: 20, color: "#F59E0B" },
-    { name: "Books", value: 10, color: "#EF4444" },
-    { name: "Other", value: 10, color: "#8B5CF6" },
-  ];
-
   const stats = dashboardStats?.data;
+  const sales = salesData?.data;
+  const profitLoss = profitLossData?.data;
 
   const kpis = [
     {
-      title: "Monthly Revenue",
-      value: formatCurrency(stats?.monthlyRevenue || 0),
-      change: "+12.5%",
+      title: "Total Revenue",
+      value: formatCurrency(profitLoss?.totalRevenue || 0),
+      change: "+12.5%", // You can calculate this from historical data
       trend: "up",
       icon: DollarSign,
       color: "green",
     },
     {
-      title: "Total Customers",
-      value: stats?.totalCustomers || 0,
+      title: "Total Sales",
+      value: formatCurrency(sales?.totalSales || 0),
       change: "+8.2%",
       trend: "up",
       icon: Users,
@@ -82,21 +78,38 @@ function ReportsOverview({ dateRange }) {
     },
     {
       title: "Products in Stock",
-      value: 1250 - (stats?.lowStockProducts || 0),
+      value: stats?.totalProducts || 0,
       change: "-2.1%",
       trend: "down",
       icon: Package,
       color: "purple",
     },
     {
-      title: "Pending Invoices",
-      value: stats?.pendingInvoices || 0,
+      title: "Net Profit",
+      value: formatCurrency(profitLoss?.netProfit || 0),
       change: "+3.2%",
       trend: "up",
       icon: FileText,
       color: "yellow",
     },
   ];
+
+  // Process expense breakdown for pie chart
+  const expenseCategories = profitLoss?.expenseBreakdown || [];
+  const categoryData = expenseCategories.slice(0, 5).map((expense, index) => ({
+    name: expense._id,
+    value: expense.total,
+    color: ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"][index],
+  }));
+
+  // Process sales by product for chart data
+  const productSales = sales?.salesByProduct || [];
+  const monthlyRevenue = productSales.slice(0, 6).map((product, index) => ({
+    month: product._id.substring(0, 10), // Use product name as month for now
+    revenue: product.totalSales,
+    expenses: 0, // You'd calculate this from expense data
+    profit: product.totalSales * 0.3, // Rough profit margin
+  }));
 
   return (
     <div className="space-y-6">
@@ -144,7 +157,7 @@ function ReportsOverview({ dateRange }) {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Trend */}
+        {/* Revenue Trend - using product sales data */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -153,36 +166,34 @@ function ReportsOverview({ dateRange }) {
         >
           <div className="card-header">
             <h3 className="text-lg font-semibold text-gray-900">
-              Revenue & Profit Trend
+              Top Product Sales
             </h3>
           </div>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyRevenue}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#3B82F6"
-                  strokeWidth={3}
-                  name="Revenue"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="profit"
-                  stroke="#10B981"
-                  strokeWidth={3}
-                  name="Profit"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {monthlyRevenue.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyRevenue}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                  <Bar
+                    dataKey="revenue"
+                    fill="#3B82F6"
+                    name="Sales"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                No sales data available
+              </div>
+            )}
           </div>
         </motion.div>
 
-        {/* Sales by Category */}
+        {/* Expense Breakdown */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -191,42 +202,50 @@ function ReportsOverview({ dateRange }) {
         >
           <div className="card-header">
             <h3 className="text-lg font-semibold text-gray-900">
-              Sales by Category
+              Expense Breakdown
             </h3>
           </div>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={120}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => `${value}%`} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            {categoryData.map((item, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: item.color }}
-                ></div>
-                <span className="text-sm text-gray-600">
-                  {item.name} ({item.value}%)
-                </span>
+            {categoryData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={120}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                No expense data available
               </div>
-            ))}
+            )}
           </div>
+          {categoryData.length > 0 && (
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              {categoryData.map((item, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  ></div>
+                  <span className="text-sm text-gray-600 truncate">
+                    {item.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </motion.div>
       </div>
 
@@ -247,10 +266,9 @@ function ReportsOverview({ dateRange }) {
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <TrendingUp className="w-8 h-8 text-blue-600" />
             </div>
-            <h4 className="font-semibold text-gray-900 mb-2">Revenue Growth</h4>
+            <h4 className="font-semibold text-gray-900 mb-2">Revenue</h4>
             <p className="text-sm text-gray-600">
-              Your monthly revenue has increased by 12.5% compared to last
-              month.
+              Total revenue: {formatCurrency(profitLoss?.totalRevenue || 0)}
             </p>
           </div>
           <div className="text-center">
@@ -259,20 +277,16 @@ function ReportsOverview({ dateRange }) {
             </div>
             <h4 className="font-semibold text-gray-900 mb-2">Profit Margin</h4>
             <p className="text-sm text-gray-600">
-              Your average profit margin is 44%, which is above industry
-              average.
+              {formatPercentage(profitLoss?.profitMargin || 0)} profit margin
             </p>
           </div>
           <div className="text-center">
             <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Calendar className="w-8 h-8 text-purple-600" />
             </div>
-            <h4 className="font-semibold text-gray-900 mb-2">
-              Seasonal Trends
-            </h4>
+            <h4 className="font-semibold text-gray-900 mb-2">Total Products</h4>
             <p className="text-sm text-gray-600">
-              June typically shows 20% higher sales. Prepare inventory
-              accordingly.
+              {stats?.totalProducts || 0} products in inventory
             </p>
           </div>
         </div>

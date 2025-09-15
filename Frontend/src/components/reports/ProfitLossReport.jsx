@@ -19,10 +19,10 @@ import { formatCurrency, formatPercentage } from "../../utils/formatters";
 import LoadingSpinner from "../common/LoadingSpinner";
 
 function ProfitLossReport({ dateRange }) {
-  const { data: profitLossData, isLoading } = useQuery(
-    ["profit-loss-report", dateRange],
-    () => reportService.getProfitLossReport(dateRange)
-  );
+  const { data: profitLossData, isLoading } = useQuery({
+    queryKey: ["profit-loss-report", dateRange],
+    queryFn: () => reportService.getProfitLossReport(dateRange),
+  });
 
   if (isLoading) {
     return (
@@ -32,31 +32,29 @@ function ProfitLossReport({ dateRange }) {
     );
   }
 
-  // Sample data
-  const data = profitLossData?.data || {
-    totalRevenue: 875000,
-    totalExpenses: 425000,
-    netProfit: 450000,
-    profitMargin: 51.4,
-    expenseBreakdown: [
-      { _id: "Office Supplies", total: 85000, count: 45 },
-      { _id: "Marketing", total: 125000, count: 32 },
-      { _id: "Utilities", total: 45000, count: 12 },
-      { _id: "Equipment", total: 95000, count: 8 },
-      { _id: "Professional Services", total: 75000, count: 15 },
-    ],
-  };
+  const data = profitLossData?.data || {};
+  const totalRevenue = data.totalRevenue || 0;
+  const totalExpenses = data.totalExpenses || 0;
+  const netProfit = data.netProfit || 0;
+  const profitMargin = data.profitMargin || 0;
+  const expenseBreakdown = data.expenseBreakdown || [];
 
-  const monthlyPL = [
-    { month: "Jan", revenue: 125000, expenses: 65000, profit: 60000 },
-    { month: "Feb", revenue: 145000, expenses: 75000, profit: 70000 },
-    { month: "Mar", revenue: 135000, expenses: 68000, profit: 67000 },
-    { month: "Apr", revenue: 165000, expenses: 85000, profit: 80000 },
-    { month: "May", revenue: 155000, expenses: 72000, profit: 83000 },
-    { month: "Jun", revenue: 175000, expenses: 82000, profit: 93000 },
-  ];
+  // Create chart data from expense breakdown
+  const expenseChartData = expenseBreakdown.map((expense) => ({
+    category: expense._id,
+    amount: expense.total,
+    count: expense.count,
+  }));
 
   const expenseColors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
+
+  // Pie chart data for expense breakdown
+  const expensePieData = expenseBreakdown.slice(0, 5).map((expense, index) => ({
+    ...expense,
+    name: expense._id,
+    value: expense.total,
+    color: expenseColors[index % expenseColors.length],
+  }));
 
   return (
     <div className="space-y-6">
@@ -73,11 +71,11 @@ function ProfitLossReport({ dateRange }) {
                 Total Revenue
               </h3>
               <p className="text-2xl font-bold text-green-600">
-                {formatCurrency(data.totalRevenue)}
+                {formatCurrency(totalRevenue)}
               </p>
               <div className="flex items-center mt-1">
                 <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-sm text-green-600">+15.2%</span>
+                <span className="text-sm text-green-600">Revenue</span>
               </div>
             </div>
             <DollarSign className="w-8 h-8 text-green-500" />
@@ -96,11 +94,11 @@ function ProfitLossReport({ dateRange }) {
                 Total Expenses
               </h3>
               <p className="text-2xl font-bold text-red-600">
-                {formatCurrency(data.totalExpenses)}
+                {formatCurrency(totalExpenses)}
               </p>
               <div className="flex items-center mt-1">
                 <TrendingUp className="w-4 h-4 text-red-500 mr-1" />
-                <span className="text-sm text-red-600">+8.5%</span>
+                <span className="text-sm text-red-600">Expenses</span>
               </div>
             </div>
             <DollarSign className="w-8 h-8 text-red-500" />
@@ -118,12 +116,26 @@ function ProfitLossReport({ dateRange }) {
               <h3 className="text-sm font-medium text-gray-500 mb-1">
                 Net Profit
               </h3>
-              <p className="text-2xl font-bold text-blue-600">
-                {formatCurrency(data.netProfit)}
+              <p
+                className={`text-2xl font-bold ${
+                  netProfit >= 0 ? "text-blue-600" : "text-red-600"
+                }`}
+              >
+                {formatCurrency(netProfit)}
               </p>
               <div className="flex items-center mt-1">
-                <TrendingUp className="w-4 h-4 text-blue-500 mr-1" />
-                <span className="text-sm text-blue-600">+22.8%</span>
+                {netProfit >= 0 ? (
+                  <TrendingUp className="w-4 h-4 text-blue-500 mr-1" />
+                ) : (
+                  <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
+                )}
+                <span
+                  className={`text-sm ${
+                    netProfit >= 0 ? "text-blue-600" : "text-red-600"
+                  }`}
+                >
+                  {netProfit >= 0 ? "Profit" : "Loss"}
+                </span>
               </div>
             </div>
             <DollarSign className="w-8 h-8 text-blue-500" />
@@ -141,12 +153,26 @@ function ProfitLossReport({ dateRange }) {
               <h3 className="text-sm font-medium text-gray-500 mb-1">
                 Profit Margin
               </h3>
-              <p className="text-2xl font-bold text-purple-600">
-                {formatPercentage(data.profitMargin)}
+              <p
+                className={`text-2xl font-bold ${
+                  profitMargin >= 0 ? "text-purple-600" : "text-red-600"
+                }`}
+              >
+                {formatPercentage(profitMargin)}
               </p>
               <div className="flex items-center mt-1">
-                <TrendingUp className="w-4 h-4 text-purple-500 mr-1" />
-                <span className="text-sm text-purple-600">+3.2%</span>
+                {profitMargin >= 0 ? (
+                  <TrendingUp className="w-4 h-4 text-purple-500 mr-1" />
+                ) : (
+                  <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
+                )}
+                <span
+                  className={`text-sm ${
+                    profitMargin >= 0 ? "text-purple-600" : "text-red-600"
+                  }`}
+                >
+                  Margin
+                </span>
               </div>
             </div>
             <TrendingUp className="w-8 h-8 text-purple-500" />
@@ -163,21 +189,30 @@ function ProfitLossReport({ dateRange }) {
       >
         <div className="card-header">
           <h3 className="text-lg font-semibold text-gray-900">
-            Monthly Profit & Loss Trend
+            Expense Breakdown by Category
           </h3>
         </div>
         <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={monthlyPL}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip formatter={(value) => formatCurrency(value)} />
-              <Bar dataKey="revenue" fill="#10B981" name="Revenue" />
-              <Bar dataKey="expenses" fill="#EF4444" name="Expenses" />
-              <Bar dataKey="profit" fill="#3B82F6" name="Profit" />
-            </BarChart>
-          </ResponsiveContainer>
+          {expenseChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={expenseChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="category"
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis />
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+                <Bar dataKey="amount" fill="#EF4444" name="Expenses" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              No expense data available for the selected period
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -191,54 +226,59 @@ function ProfitLossReport({ dateRange }) {
         >
           <div className="card-header">
             <h3 className="text-lg font-semibold text-gray-900">
-              Expense Breakdown
+              Expense Distribution
             </h3>
           </div>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data.expenseBreakdown.map((item, index) => ({
-                    ...item,
-                    color: expenseColors[index % expenseColors.length],
-                  }))}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={120}
-                  paddingAngle={5}
-                  dataKey="total"
-                >
-                  {data.expenseBreakdown.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={expenseColors[index % expenseColors.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="grid grid-cols-1 gap-2 mt-4">
-            {data.expenseBreakdown.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{
-                      backgroundColor:
-                        expenseColors[index % expenseColors.length],
-                    }}
-                  ></div>
-                  <span className="text-sm text-gray-600">{item._id}</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900">
-                  {formatCurrency(item.total)}
-                </span>
+            {expensePieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={expensePieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={120}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {expensePieData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={expenseColors[index % expenseColors.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                No expense data available
               </div>
-            ))}
+            )}
           </div>
+          {expensePieData.length > 0 && (
+            <div className="grid grid-cols-1 gap-2 mt-4">
+              {expensePieData.map((item, index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{
+                        backgroundColor:
+                          expenseColors[index % expenseColors.length],
+                      }}
+                    ></div>
+                    <span className="text-sm text-gray-600">{item.name}</span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-900">
+                    {formatCurrency(item.value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </motion.div>
 
         <motion.div
@@ -253,38 +293,97 @@ function ProfitLossReport({ dateRange }) {
             </h3>
           </div>
           <div className="space-y-4">
-            {data.expenseBreakdown.map((expense, index) => {
-              const percentage = (expense.total / data.totalExpenses) * 100;
-              return (
-                <div key={index} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-900">
-                      {expense._id}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {formatCurrency(expense.total)}
-                    </span>
+            {expenseBreakdown.length > 0 ? (
+              expenseBreakdown.map((expense, index) => {
+                const percentage =
+                  totalExpenses > 0 ? (expense.total / totalExpenses) * 100 : 0;
+                return (
+                  <div key={index} className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-900">
+                        {expense._id}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {formatCurrency(expense.total)}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="h-2 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${percentage}%`,
+                          backgroundColor:
+                            expenseColors[index % expenseColors.length],
+                        }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>{expense.count} transactions</span>
+                      <span>{formatPercentage(percentage, 1)}</span>
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="h-2 rounded-full transition-all duration-300"
-                      style={{
-                        width: `${percentage}%`,
-                        backgroundColor:
-                          expenseColors[index % expenseColors.length],
-                      }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>{expense.count} transactions</span>
-                    <span>{formatPercentage(percentage, 1)}</span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No expense categories found
+              </div>
+            )}
           </div>
         </motion.div>
       </div>
+
+      {/* Summary */}
+      {totalRevenue > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="card bg-gradient-to-r from-gray-50 to-blue-50"
+        >
+          <div className="card-header">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Financial Summary
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-green-600">
+                {formatCurrency(totalRevenue)}
+              </p>
+              <p className="text-sm text-gray-600">Revenue</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-red-600">
+                {formatCurrency(totalExpenses)}
+              </p>
+              <p className="text-sm text-gray-600">Expenses</p>
+            </div>
+            <div className="text-center">
+              <p
+                className={`text-2xl font-bold ${
+                  netProfit >= 0 ? "text-blue-600" : "text-red-600"
+                }`}
+              >
+                {formatCurrency(netProfit)}
+              </p>
+              <p className="text-sm text-gray-600">
+                Net {netProfit >= 0 ? "Profit" : "Loss"}
+              </p>
+            </div>
+            <div className="text-center">
+              <p
+                className={`text-2xl font-bold ${
+                  profitMargin >= 0 ? "text-purple-600" : "text-red-600"
+                }`}
+              >
+                {formatPercentage(profitMargin)}
+              </p>
+              <p className="text-sm text-gray-600">Profit Margin</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }
