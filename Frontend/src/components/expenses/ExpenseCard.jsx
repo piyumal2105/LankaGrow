@@ -13,19 +13,21 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { expenseService } from "../../services/expenseService";
-import { formatCurrency, formatDate } from "../../utils/formatters";
 import Button from "../common/Button";
 import Modal from "../common/Modal";
 
 function ExpenseCard({ expense, onEdit, onRefresh }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const queryClient = useQueryClient();
 
-  const deleteMutation = useMutation(expenseService.deleteExpense, {
+  // Fixed useMutation syntax for TanStack Query v5
+  const deleteMutation = useMutation({
+    mutationFn: (expenseId) => expenseService.deleteExpense(expenseId),
     onSuccess: () => {
       toast.success("Expense deleted successfully");
-      queryClient.invalidateQueries("expenses");
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       onRefresh();
     },
     onError: (error) => {
@@ -68,11 +70,24 @@ function ExpenseCard({ expense, onEdit, onRefresh }) {
     return colors[category] || "bg-gray-100 text-gray-800";
   };
 
+  const formatCurrency = (amount) => {
+    return `Rs ${amount?.toLocaleString() || "0.00"}`;
+  };
+
+  const formatDate = (dateString, format = "MMM d, yyyy") => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
   return (
     <>
       <motion.div
         whileHover={{ y: -5 }}
-        className="card group relative overflow-hidden"
+        className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200 relative overflow-hidden"
       >
         {/* AI Badge */}
         {expense.aiCategory && (
@@ -103,21 +118,23 @@ function ExpenseCard({ expense, onEdit, onRefresh }) {
         <div className="space-y-2 mb-4">
           <div className="flex items-center justify-between">
             <span
-              className={`badge text-xs ${getCategoryColor(expense.category)}`}
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
+                expense.category
+              )}`}
             >
               {expense.category}
             </span>
             <div className="flex items-center space-x-1 text-sm text-gray-600">
               <span>{getPaymentMethodIcon(expense.paymentMethod)}</span>
               <span className="capitalize">
-                {expense.paymentMethod.replace("_", " ")}
+                {expense.paymentMethod?.replace("_", " ")}
               </span>
             </div>
           </div>
 
           <div className="flex items-center space-x-2 text-sm text-gray-600">
             <Calendar className="w-4 h-4" />
-            <span>{formatDate(expense.date, "MMM d, yyyy")}</span>
+            <span>{formatDate(expense.date)}</span>
           </div>
 
           {expense.vendor && (
@@ -150,20 +167,29 @@ function ExpenseCard({ expense, onEdit, onRefresh }) {
         {/* Status */}
         <div className="flex items-center justify-between mb-4">
           <span
-            className={`badge text-xs ${
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
               expense.status === "approved"
-                ? "badge-success"
+                ? "bg-green-100 text-green-800"
                 : expense.status === "rejected"
-                ? "badge-error"
-                : "badge-warning"
+                ? "bg-red-100 text-red-800"
+                : "bg-yellow-100 text-yellow-800"
             }`}
           >
             {expense.status}
           </span>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Actions - ALWAYS VISIBLE (removed hover) */}
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowDetailsModal(true)}
+            className="flex-1"
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            View
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -183,6 +209,96 @@ function ExpenseCard({ expense, onEdit, onRefresh }) {
           </Button>
         </div>
       </motion.div>
+
+      {/* Simple Details Modal */}
+      <Modal
+        isOpen={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        title="Expense Details"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="text-center border-b pb-4 mb-4">
+            <h3 className="text-xl font-semibold text-gray-900">
+              {expense.description}
+            </h3>
+            <p className="text-3xl font-bold text-gray-900 mt-2">
+              {formatCurrency(expense.amount)}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-500">
+                Date
+              </label>
+              <p className="mt-1">{formatDate(expense.date)}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500">
+                Category
+              </label>
+              <p className="mt-1">{expense.category}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500">
+                Payment Method
+              </label>
+              <p className="mt-1 capitalize">
+                {expense.paymentMethod?.replace("_", " ")}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500">
+                Status
+              </label>
+              <p className="mt-1 capitalize">{expense.status}</p>
+            </div>
+            {expense.vendor && (
+              <div>
+                <label className="block text-sm font-medium text-gray-500">
+                  Vendor
+                </label>
+                <p className="mt-1">{expense.vendor}</p>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-500">
+                Tax Deductible
+              </label>
+              <p className="mt-1">{expense.taxDeductible ? "Yes" : "No"}</p>
+            </div>
+          </div>
+
+          {expense.notes && (
+            <div>
+              <label className="block text-sm font-medium text-gray-500">
+                Notes
+              </label>
+              <p className="mt-1 bg-gray-50 p-3 rounded">{expense.notes}</p>
+            </div>
+          )}
+
+          <div className="flex space-x-3 pt-4 border-t">
+            <Button
+              variant="secondary"
+              onClick={() => setShowDetailsModal(false)}
+              className="flex-1"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                setShowDetailsModal(false);
+                onEdit(expense);
+              }}
+              className="flex-1"
+            >
+              Edit
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal
@@ -213,7 +329,7 @@ function ExpenseCard({ expense, onEdit, onRefresh }) {
             <Button
               variant="error"
               onClick={handleDelete}
-              loading={deleteMutation.isLoading}
+              loading={deleteMutation.isPending}
               className="flex-1"
             >
               Delete

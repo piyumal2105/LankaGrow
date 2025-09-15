@@ -11,4 +11,11 @@ export const expenseService = {
     api.post("/expenses/upload-receipt", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     }),
+
+  // New endpoints for dynamic data
+  getRecentExpenses: () => api.get("/expenses/recent"),
+  getExpenseAnalytics: () => api.get("/expenses/analytics"),
+  getCategoryInsights: () => api.get("/expenses/insights"),
+  getMonthlyStats: (params = {}) =>
+    api.get("/expenses/monthly-stats", { params }),
 };

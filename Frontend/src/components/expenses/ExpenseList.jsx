@@ -5,6 +5,11 @@ import LoadingSpinner from "../common/LoadingSpinner";
 import { DollarSign } from "lucide-react";
 
 function ExpenseList({ expenses, isLoading, onEdit, onRefresh }) {
+  // Debug what we're getting
+  console.log("ExpenseList props:", { expenses, isLoading });
+  console.log("expenses type:", typeof expenses);
+  console.log("expenses is array:", Array.isArray(expenses));
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -20,7 +25,23 @@ function ExpenseList({ expenses, isLoading, onEdit, onRefresh }) {
     );
   }
 
-  if (expenses.length === 0) {
+  // CRITICAL FIX: Always ensure we have an array
+  let expenseList = [];
+
+  if (Array.isArray(expenses)) {
+    expenseList = expenses;
+  } else if (expenses?.data && Array.isArray(expenses.data)) {
+    expenseList = expenses.data;
+  } else if (expenses?.data?.data && Array.isArray(expenses.data.data)) {
+    expenseList = expenses.data.data;
+  } else {
+    console.warn("Expenses is not in expected format:", expenses);
+    expenseList = [];
+  }
+
+  console.log("Final expenseList:", expenseList);
+
+  if (expenseList.length === 0) {
     return (
       <div className="text-center py-12">
         <DollarSign className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -36,9 +57,9 @@ function ExpenseList({ expenses, isLoading, onEdit, onRefresh }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {expenses.map((expense, index) => (
+      {expenseList.map((expense, index) => (
         <motion.div
-          key={expense._id}
+          key={expense._id || expense.id || index}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: index * 0.1 }}

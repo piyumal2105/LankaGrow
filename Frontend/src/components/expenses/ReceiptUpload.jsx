@@ -11,12 +11,14 @@ function ReceiptUpload({ onClose, onSuccess }) {
   const [preview, setPreview] = useState(null);
   const queryClient = useQueryClient();
 
-  const uploadMutation = useMutation(expenseService.uploadReceipt, {
+  // Fixed useMutation syntax for TanStack Query v5
+  const uploadMutation = useMutation({
+    mutationFn: expenseService.uploadReceipt,
     onSuccess: (response) => {
       toast.success(
         "Receipt uploaded successfully! AI is processing the data..."
       );
-      queryClient.invalidateQueries("expenses");
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       onSuccess(response.data);
     },
     onError: (error) => {
@@ -149,7 +151,7 @@ function ReceiptUpload({ onClose, onSuccess }) {
         <Button
           onClick={handleUpload}
           disabled={!uploadedFile}
-          loading={uploadMutation.isLoading}
+          loading={uploadMutation.isPending}
           className="flex-1"
         >
           Upload & Process

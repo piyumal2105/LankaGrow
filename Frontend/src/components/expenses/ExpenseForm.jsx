@@ -65,10 +65,12 @@ function ExpenseForm({ expense, onClose, onSuccess }) {
     return () => clearTimeout(timeoutId);
   }, [watchDescription, watchAmount, isEditing]);
 
-  const createMutation = useMutation(expenseService.createExpense, {
+  // Fixed useMutation syntax for TanStack Query v5
+  const createMutation = useMutation({
+    mutationFn: expenseService.createExpense,
     onSuccess: () => {
       toast.success("Expense created successfully");
-      queryClient.invalidateQueries("expenses");
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       onSuccess();
     },
     onError: (error) => {
@@ -76,21 +78,17 @@ function ExpenseForm({ expense, onClose, onSuccess }) {
     },
   });
 
-  const updateMutation = useMutation(
-    (data) => expenseService.updateExpense(expense._id, data),
-    {
-      onSuccess: () => {
-        toast.success("Expense updated successfully");
-        queryClient.invalidateQueries("expenses");
-        onSuccess();
-      },
-      onError: (error) => {
-        toast.error(
-          error.response?.data?.message || "Failed to update expense"
-        );
-      },
-    }
-  );
+  const updateMutation = useMutation({
+    mutationFn: (data) => expenseService.updateExpense(expense._id, data),
+    onSuccess: () => {
+      toast.success("Expense updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      onSuccess();
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || "Failed to update expense");
+    },
+  });
 
   const onSubmit = (data) => {
     if (isEditing) {
@@ -108,6 +106,32 @@ function ExpenseForm({ expense, onClose, onSuccess }) {
     }
   };
 
+  // Default categories if EXPENSE_CATEGORIES is not available
+  const expenseCategories = EXPENSE_CATEGORIES || [
+    "Office Supplies",
+    "Travel",
+    "Marketing",
+    "Utilities",
+    "Equipment",
+    "Professional Services",
+    "Inventory",
+    "Maintenance",
+    "Insurance",
+    "Rent",
+    "Salaries",
+    "Other",
+  ];
+
+  // Default payment methods if PAYMENT_METHODS is not available
+  const paymentMethods = PAYMENT_METHODS || [
+    "card",
+    "cash",
+    "bank_transfer",
+    "check",
+    "digital_wallet",
+    "other",
+  ];
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Basic Information */}
@@ -119,24 +143,32 @@ function ExpenseForm({ expense, onClose, onSuccess }) {
 
         {/* Description */}
         <div>
-          <label className="label">Description *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Description *
+          </label>
           <input
             {...register("description", {
               required: "Description is required",
             })}
             type="text"
-            className={`input ${errors.description ? "input-error" : ""}`}
+            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+              errors.description ? "border-red-500" : ""
+            }`}
             placeholder="Enter expense description"
           />
           {errors.description && (
-            <p className="error-text">{errors.description.message}</p>
+            <p className="mt-1 text-sm text-red-600">
+              {errors.description.message}
+            </p>
           )}
         </div>
 
         {/* Amount and Date */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="label">Amount *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Amount *
+            </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
                 Rs
@@ -145,32 +177,44 @@ function ExpenseForm({ expense, onClose, onSuccess }) {
                 {...register("amount", {
                   required: "Amount is required",
                   validate: (value) =>
-                    validateAmount(value) || "Invalid amount",
+                    validateAmount
+                      ? validateAmount(value) || "Invalid amount"
+                      : value > 0 || "Amount must be greater than 0",
                 })}
                 type="number"
                 step="0.01"
                 min="0"
-                className={`input pl-10 ${errors.amount ? "input-error" : ""}`}
+                className={`w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.amount ? "border-red-500" : ""
+                }`}
                 placeholder="0.00"
               />
               <DollarSign className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             </div>
             {errors.amount && (
-              <p className="error-text">{errors.amount.message}</p>
+              <p className="mt-1 text-sm text-red-600">
+                {errors.amount.message}
+              </p>
             )}
           </div>
 
           <div>
-            <label className="label">Date *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date *
+            </label>
             <div className="relative">
               <input
                 {...register("date", { required: "Date is required" })}
                 type="date"
-                className={`input pl-10 ${errors.date ? "input-error" : ""}`}
+                className={`w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.date ? "border-red-500" : ""
+                }`}
               />
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             </div>
-            {errors.date && <p className="error-text">{errors.date.message}</p>}
+            {errors.date && (
+              <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
+            )}
           </div>
         </div>
 
@@ -205,29 +249,37 @@ function ExpenseForm({ expense, onClose, onSuccess }) {
         {/* Category */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="label">Category *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Category *
+            </label>
             <select
               {...register("category", { required: "Category is required" })}
-              className={`input ${errors.category ? "input-error" : ""}`}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.category ? "border-red-500" : ""
+              }`}
             >
               <option value="">Select category</option>
-              {EXPENSE_CATEGORIES.map((category) => (
+              {expenseCategories.map((category) => (
                 <option key={category} value={category}>
                   {category}
                 </option>
               ))}
             </select>
             {errors.category && (
-              <p className="error-text">{errors.category.message}</p>
+              <p className="mt-1 text-sm text-red-600">
+                {errors.category.message}
+              </p>
             )}
           </div>
 
           <div>
-            <label className="label">Sub Category</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Sub Category
+            </label>
             <input
               {...register("subCategory")}
               type="text"
-              className="input"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter sub category"
             />
           </div>
@@ -235,17 +287,19 @@ function ExpenseForm({ expense, onClose, onSuccess }) {
 
         {/* Payment Method */}
         <div>
-          <label className="label">Payment Method *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Payment Method *
+          </label>
           <div className="relative">
             <select
               {...register("paymentMethod", {
                 required: "Payment method is required",
               })}
-              className={`input pl-10 ${
-                errors.paymentMethod ? "input-error" : ""
+              className={`w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.paymentMethod ? "border-red-500" : ""
               }`}
             >
-              {PAYMENT_METHODS.map((method) => (
+              {paymentMethods.map((method) => (
                 <option key={method} value={method}>
                   {method
                     .replace("_", " ")
@@ -256,18 +310,22 @@ function ExpenseForm({ expense, onClose, onSuccess }) {
             <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           </div>
           {errors.paymentMethod && (
-            <p className="error-text">{errors.paymentMethod.message}</p>
+            <p className="mt-1 text-sm text-red-600">
+              {errors.paymentMethod.message}
+            </p>
           )}
         </div>
 
         {/* Vendor */}
         <div>
-          <label className="label">Vendor/Supplier</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Vendor/Supplier
+          </label>
           <div className="relative">
             <input
               {...register("vendor")}
               type="text"
-              className="input pl-10"
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter vendor name"
             />
             <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -276,11 +334,13 @@ function ExpenseForm({ expense, onClose, onSuccess }) {
 
         {/* Notes */}
         <div>
-          <label className="label">Notes</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Notes
+          </label>
           <textarea
             {...register("notes")}
             rows={3}
-            className="input resize-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
             placeholder="Additional notes about this expense"
           />
         </div>
@@ -312,7 +372,11 @@ function ExpenseForm({ expense, onClose, onSuccess }) {
         >
           Cancel
         </Button>
-        <Button type="submit" loading={isSubmitting} className="flex-1">
+        <Button
+          type="submit"
+          loading={createMutation.isPending || updateMutation.isPending}
+          className="flex-1"
+        >
           {isEditing ? "Update Expense" : "Create Expense"}
         </Button>
       </div>
