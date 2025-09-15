@@ -12,6 +12,8 @@ import {
   User,
   DollarSign,
   Clock,
+  Eye,
+  Printer,
 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -22,12 +24,14 @@ import Modal from "../common/Modal";
 
 function InvoiceCard({ invoice, onEdit, onRefresh }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const queryClient = useQueryClient();
 
-  const deleteMutation = useMutation(invoiceService.deleteInvoice, {
+  const deleteMutation = useMutation({
+    mutationFn: (id) => invoiceService.deleteInvoice(id),
     onSuccess: () => {
       toast.success("Invoice deleted successfully");
-      queryClient.invalidateQueries("invoices");
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       onRefresh();
     },
     onError: (error) => {
@@ -35,10 +39,11 @@ function InvoiceCard({ invoice, onEdit, onRefresh }) {
     },
   });
 
-  const sendMutation = useMutation(invoiceService.sendInvoice, {
+  const sendMutation = useMutation({
+    mutationFn: (id) => invoiceService.sendInvoice(id),
     onSuccess: () => {
       toast.success("Invoice sent successfully");
-      queryClient.invalidateQueries("invoices");
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       onRefresh();
     },
     onError: (error) => {
@@ -46,10 +51,11 @@ function InvoiceCard({ invoice, onEdit, onRefresh }) {
     },
   });
 
-  const markPaidMutation = useMutation(invoiceService.markAsPaid, {
+  const markPaidMutation = useMutation({
+    mutationFn: (id) => invoiceService.markAsPaid(id),
     onSuccess: () => {
       toast.success("Invoice marked as paid");
-      queryClient.invalidateQueries("invoices");
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       onRefresh();
     },
     onError: (error) => {
@@ -70,20 +76,243 @@ function InvoiceCard({ invoice, onEdit, onRefresh }) {
     markPaidMutation.mutate(invoice._id);
   };
 
-  const handleDownloadPDF = async () => {
-    try {
-      const response = await invoiceService.generatePDF(invoice._id);
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `invoice-${invoice.invoiceNumber}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      toast.error("Failed to download PDF");
-    }
+  const handlePrintInvoice = () => {
+    const printWindow = window.open("", "_blank");
+    const printContent = generatePrintableInvoice(invoice);
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
+
+  const generatePrintableInvoice = (invoice) => {
+    const currentDate = new Date().toLocaleDateString();
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Invoice #${invoice.invoiceNumber}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: 'Arial', sans-serif; 
+              line-height: 1.6; 
+              color: #333;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+            }
+            .header { 
+              text-align: center; 
+              border-bottom: 3px solid #2563eb;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .company-name { 
+              font-size: 2.5rem; 
+              font-weight: bold; 
+              color: #2563eb;
+              margin-bottom: 5px;
+            }
+            .company-tagline { 
+              font-size: 1.1rem; 
+              color: #6b7280;
+              font-style: italic;
+            }
+            .invoice-title { 
+              font-size: 2rem; 
+              font-weight: bold;
+              margin: 30px 0 20px 0;
+              text-align: center;
+              color: #1f2937;
+            }
+            .invoice-details { 
+              display: grid; 
+              grid-template-columns: 1fr 1fr; 
+              gap: 30px;
+              margin-bottom: 30px;
+            }
+            .detail-section h3 { 
+              font-size: 1.1rem; 
+              font-weight: bold;
+              margin-bottom: 10px;
+              color: #374151;
+              border-bottom: 1px solid #e5e7eb;
+              padding-bottom: 5px;
+            }
+            .detail-section p { 
+              margin-bottom: 5px;
+              color: #6b7280;
+            }
+            .items-table { 
+              width: 100%; 
+              border-collapse: collapse;
+              margin: 30px 0;
+              background: white;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            .items-table th { 
+              background: #f3f4f6; 
+              padding: 12px; 
+              text-align: left;
+              font-weight: bold;
+              border: 1px solid #e5e7eb;
+              color: #374151;
+            }
+            .items-table td { 
+              padding: 12px; 
+              border: 1px solid #e5e7eb;
+              color: #6b7280;
+            }
+            .items-table tr:nth-child(even) { background: #f9fafb; }
+            .totals { 
+              margin-top: 30px;
+              text-align: right;
+            }
+            .totals table { 
+              margin-left: auto;
+              border-collapse: collapse;
+            }
+            .totals td { 
+              padding: 8px 15px;
+              border: none;
+            }
+            .total-row { 
+              font-weight: bold;
+              font-size: 1.2rem;
+              border-top: 2px solid #2563eb !important;
+              color: #1f2937;
+            }
+            .footer { 
+              margin-top: 40px;
+              text-align: center;
+              padding-top: 20px;
+              border-top: 1px solid #e5e7eb;
+              color: #6b7280;
+              font-size: 0.9rem;
+            }
+            .status-badge {
+              display: inline-block;
+              padding: 4px 12px;
+              border-radius: 20px;
+              font-size: 0.85rem;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            .status-paid { background: #dcfce7; color: #166534; }
+            .status-sent { background: #dbeafe; color: #1d4ed8; }
+            .status-draft { background: #f3f4f6; color: #374151; }
+            .status-overdue { background: #fee2e2; color: #dc2626; }
+            @media print {
+              body { margin: 0; padding: 15px; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">LankaGrow</div>
+            <div class="company-tagline">AI-Powered Business Management Platform</div>
+          </div>
+
+          <div class="invoice-title">INVOICE</div>
+
+          <div class="invoice-details">
+            <div class="detail-section">
+              <h3>Bill To:</h3>
+              <p><strong>${invoice.customer?.name || "N/A"}</strong></p>
+              <p>${invoice.customer?.email || ""}</p>
+              <p>${invoice.customer?.phone || ""}</p>
+              <p>${invoice.customer?.address || ""}</p>
+            </div>
+            <div class="detail-section">
+              <h3>Invoice Details:</h3>
+              <p><strong>Invoice #:</strong> ${
+                invoice.invoiceNumber || invoice._id
+              }</p>
+              <p><strong>Date:</strong> ${formatDate(
+                invoice.createdAt || new Date()
+              )}</p>
+              <p><strong>Due Date:</strong> ${formatDate(invoice.dueDate)}</p>
+              <p><strong>Status:</strong> 
+                <span class="status-badge status-${invoice.status}">${
+      invoice.status
+    }</span>
+              </p>
+            </div>
+          </div>
+
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Discount</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                invoice.items
+                  ?.map(
+                    (item) => `
+                <tr>
+                  <td>${item.productName || "N/A"}</td>
+                  <td>${item.quantity}</td>
+                  <td>${formatCurrency(item.unitPrice)}</td>
+                  <td>${formatCurrency(item.discount || 0)}</td>
+                  <td>${formatCurrency(
+                    item.quantity * item.unitPrice - (item.discount || 0)
+                  )}</td>
+                </tr>
+              `
+                  )
+                  .join("") || '<tr><td colspan="5">No items</td></tr>'
+              }
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <table>
+              <tr>
+                <td><strong>Subtotal:</strong></td>
+                <td>${formatCurrency(invoice.subtotal || 0)}</td>
+              </tr>
+              <tr>
+                <td><strong>Tax (${invoice.taxRate || 0}%):</strong></td>
+                <td>${formatCurrency(invoice.taxAmount || 0)}</td>
+              </tr>
+              <tr class="total-row">
+                <td><strong>Total:</strong></td>
+                <td><strong>${formatCurrency(
+                  invoice.totalAmount || 0
+                )}</strong></td>
+              </tr>
+            </table>
+          </div>
+
+          ${
+            invoice.notes
+              ? `
+            <div style="margin-top: 30px;">
+              <h3>Notes:</h3>
+              <p>${invoice.notes}</p>
+            </div>
+          `
+              : ""
+          }
+
+          <div class="footer">
+            <p>Thank you for your business!</p>
+            <p>Generated on ${currentDate} | LankaGrow Business Management Platform</p>
+          </div>
+        </body>
+      </html>
+    `;
   };
 
   const getStatusColor = (status) => {
@@ -129,7 +358,7 @@ function InvoiceCard({ invoice, onEdit, onRefresh }) {
     <>
       <motion.div
         whileHover={{ y: -2 }}
-        className={`card group relative overflow-hidden border-l-4 ${
+        className={`card relative overflow-hidden border-l-4 ${
           isOverdue
             ? "border-l-red-500"
             : invoice.status === "paid"
@@ -193,9 +422,17 @@ function InvoiceCard({ invoice, onEdit, onRefresh }) {
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Actions - Always visible, no hover effect */}
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
           <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowInvoicePreview(true)}
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              View
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -205,9 +442,9 @@ function InvoiceCard({ invoice, onEdit, onRefresh }) {
               <Edit className="w-4 h-4 mr-1" />
               Edit
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleDownloadPDF}>
-              <Download className="w-4 h-4 mr-1" />
-              PDF
+            <Button variant="ghost" size="sm" onClick={handlePrintInvoice}>
+              <Printer className="w-4 h-4 mr-1" />
+              Print
             </Button>
             <Button
               variant="ghost"
@@ -231,7 +468,7 @@ function InvoiceCard({ invoice, onEdit, onRefresh }) {
                 variant="secondary"
                 size="sm"
                 onClick={handleSend}
-                loading={sendMutation.isLoading}
+                loading={sendMutation.isPending}
               >
                 <Send className="w-4 h-4 mr-1" />
                 Send
@@ -242,7 +479,7 @@ function InvoiceCard({ invoice, onEdit, onRefresh }) {
                 variant="success"
                 size="sm"
                 onClick={handleMarkPaid}
-                loading={markPaidMutation.isLoading}
+                loading={markPaidMutation.isPending}
               >
                 <CheckCircle className="w-4 h-4 mr-1" />
                 Mark Paid
@@ -259,6 +496,145 @@ function InvoiceCard({ invoice, onEdit, onRefresh }) {
           </div>
         </div>
       </motion.div>
+
+      {/* Invoice Preview Modal */}
+      <Modal
+        isOpen={showInvoicePreview}
+        onClose={() => setShowInvoicePreview(false)}
+        title={`Invoice #${invoice.invoiceNumber}`}
+        size="xl"
+      >
+        <div className="space-y-6">
+          {/* Invoice Header */}
+          <div className="text-center border-b pb-4">
+            <h2 className="text-2xl font-bold text-blue-600">
+              {invoice.businessName || "Your Business Name"}
+            </h2>
+            <p className="text-gray-600">
+              {invoice.businessAddress || "Business Address"}
+            </p>
+            <p className="text-gray-600">
+              {invoice.businessPhone && `Phone: ${invoice.businessPhone}`}
+              {invoice.businessPhone && invoice.businessEmail && " | "}
+              {invoice.businessEmail && `Email: ${invoice.businessEmail}`}
+            </p>
+            <p className="text-sm text-gray-400 mt-2">
+              Powered by LankaGrow Platform
+            </p>
+          </div>
+
+          {/* Invoice Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">Bill To:</h3>
+              <p className="text-gray-600">{invoice.customer?.name}</p>
+              <p className="text-gray-600">{invoice.customer?.email}</p>
+              <p className="text-gray-600">{invoice.customer?.phone}</p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">
+                Invoice Details:
+              </h3>
+              <p className="text-gray-600">
+                Invoice #: {invoice.invoiceNumber}
+              </p>
+              <p className="text-gray-600">
+                Date: {formatDate(invoice.createdAt)}
+              </p>
+              <p className="text-gray-600">
+                Due Date: {formatDate(invoice.dueDate)}
+              </p>
+              <p className="text-gray-600">
+                Status:{" "}
+                <span
+                  className={`badge text-xs ${getStatusColor(invoice.status)}`}
+                >
+                  {invoice.status}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* Items */}
+          <div>
+            <h3 className="font-semibold text-gray-900 mb-3">Items:</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="border border-gray-200 px-4 py-2 text-left">
+                      Item
+                    </th>
+                    <th className="border border-gray-200 px-4 py-2 text-left">
+                      Qty
+                    </th>
+                    <th className="border border-gray-200 px-4 py-2 text-left">
+                      Price
+                    </th>
+                    <th className="border border-gray-200 px-4 py-2 text-left">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoice.items?.map((item, index) => (
+                    <tr key={index}>
+                      <td className="border border-gray-200 px-4 py-2">
+                        {item.productName}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-2">
+                        {item.quantity}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-2">
+                        {formatCurrency(item.unitPrice)}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-2">
+                        {formatCurrency(
+                          item.quantity * item.unitPrice - (item.discount || 0)
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Totals */}
+          <div className="border-t pt-4">
+            <div className="flex justify-end">
+              <div className="w-64">
+                <div className="flex justify-between mb-2">
+                  <span>Subtotal:</span>
+                  <span>{formatCurrency(invoice.subtotal || 0)}</span>
+                </div>
+                <div className="flex justify-between mb-2">
+                  <span>Tax ({invoice.taxRate || 0}%):</span>
+                  <span>{formatCurrency(invoice.taxAmount || 0)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-lg border-t pt-2">
+                  <span>Total:</span>
+                  <span>{formatCurrency(invoice.totalAmount)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end space-x-3 border-t pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setShowInvoicePreview(false)}
+            >
+              Close
+            </Button>
+            <Button onClick={handlePrintInvoice}>
+              <Printer className="w-4 h-4 mr-2" />
+              Print Invoice
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal
@@ -289,7 +665,7 @@ function InvoiceCard({ invoice, onEdit, onRefresh }) {
             <Button
               variant="error"
               onClick={handleDelete}
-              loading={deleteMutation.isLoading}
+              loading={deleteMutation.isPending}
               className="flex-1"
             >
               Delete

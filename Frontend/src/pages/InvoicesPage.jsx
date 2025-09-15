@@ -1,6 +1,13 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Menu, Plus, Search, Filter, AlertTriangle } from "lucide-react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import {
+  Menu,
+  Plus,
+  Search,
+  Filter,
+  AlertTriangle,
+  BarChart3,
+} from "lucide-react";
 import Sidebar from "../components/common/Sidebar";
 import InvoiceList from "../components/invoices/InvoiceList";
 import InvoiceForm from "../components/invoices/InvoiceForm";
@@ -36,6 +43,11 @@ function InvoicesPage() {
   const { data: overdueInvoices } = useQuery({
     queryKey: ["overdue-invoices"],
     queryFn: invoiceService.getOverdueInvoices,
+  });
+
+  const { data: recentInvoices } = useQuery({
+    queryKey: ["recent-invoices"],
+    queryFn: invoiceService.getRecentInvoices,
   });
 
   const handleCreateInvoice = () => {
@@ -76,10 +88,10 @@ function InvoicesPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:ml-80">
         {/* Header */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -97,15 +109,53 @@ function InvoicesPage() {
                 </p>
               </div>
             </div>
-            <Button
-              onClick={handleCreateInvoice}
-              className="flex items-center space-x-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Create Invoice</span>
-            </Button>
+            <div className="flex space-x-3">
+              <Button
+                onClick={handleCreateInvoice}
+                className="flex items-center space-x-2"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Add Invoice</span>
+              </Button>
+            </div>
           </div>
         </header>
+
+        {/* Recent Invoices Summary */}
+        {recentInvoices?.data?.length > 0 && (
+          <div className="bg-blue-50 border-b border-blue-200 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-blue-900">
+                  Recent Invoices This Month
+                </h3>
+                <div className="flex items-center space-x-6 mt-2">
+                  {recentInvoices.data.slice(0, 3).map((invoice, index) => (
+                    <div
+                      key={invoice._id}
+                      className="flex items-center space-x-2"
+                    >
+                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-medium">
+                          {String.fromCharCode(73 + index)}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-blue-900">
+                          {invoice.customerName ||
+                            `Invoice #${invoice.invoiceNumber}`}
+                        </p>
+                        <p className="text-xs text-blue-700">
+                          Rs {invoice.total?.toLocaleString() || 0}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Overdue Invoices Alert */}
         {overdueInvoices?.data?.length > 0 && (

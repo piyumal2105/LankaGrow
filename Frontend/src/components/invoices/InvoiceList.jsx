@@ -5,6 +5,9 @@ import LoadingSpinner from "../common/LoadingSpinner";
 import { FileText } from "lucide-react";
 
 function InvoiceList({ invoices, isLoading, onEdit, onRefresh }) {
+  // Ensure invoices is always an array
+  const invoiceList = Array.isArray(invoices) ? invoices : [];
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -26,7 +29,7 @@ function InvoiceList({ invoices, isLoading, onEdit, onRefresh }) {
     );
   }
 
-  if (invoices.length === 0) {
+  if (invoiceList.length === 0) {
     return (
       <div className="text-center py-12">
         <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -42,7 +45,7 @@ function InvoiceList({ invoices, isLoading, onEdit, onRefresh }) {
 
   return (
     <div className="space-y-4">
-      {invoices.map((invoice, index) => (
+      {invoiceList.map((invoice, index) => (
         <motion.div
           key={invoice._id}
           initial={{ opacity: 0, y: 20 }}

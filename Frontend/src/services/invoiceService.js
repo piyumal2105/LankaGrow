@@ -1,13 +1,37 @@
 import api from "./api";
 
 export const invoiceService = {
-  getInvoices: (params = {}) => api.get("/invoices", { params }),
-  getInvoice: (id) => api.get(`/invoices/${id}`),
-  createInvoice: (data) => api.post("/invoices", data),
-  updateInvoice: (id, data) => api.put(`/invoices/${id}`, data),
-  deleteInvoice: (id) => api.delete(`/invoices/${id}`),
-  markAsPaid: (id) => api.put(`/invoices/${id}/pay`),
-  sendInvoice: (id) => api.post(`/invoices/${id}/send`),
-  getOverdueInvoices: () => api.get("/invoices/overdue"),
-  generatePDF: (id) => api.get(`/invoices/${id}/pdf`, { responseType: "blob" }),
+  getInvoices: async (params = {}) => {
+    const response = await api.get("/invoices", { params });
+    return response.data; // Return just the response data, not the full Axios response
+  },
+  getInvoice: async (id) => {
+    const response = await api.get(`/invoices/${id}`);
+    return response.data;
+  },
+  createInvoice: async (data) => {
+    const response = await api.post("/invoices", data);
+    return response.data;
+  },
+  updateInvoice: async (id, data) => {
+    const response = await api.put(`/invoices/${id}`, data);
+    return response.data;
+  },
+  deleteInvoice: async (id) => {
+    const response = await api.delete(`/invoices/${id}`);
+    return response.data;
+  },
+  markAsPaid: async (id) => {
+    const response = await api.put(`/invoices/${id}/pay`);
+    return response.data;
+  },
+  sendInvoice: async (id) => {
+    const response = await api.post(`/invoices/${id}/send`);
+    return response.data;
+  },
+  getOverdueInvoices: async () => {
+    const response = await api.get("/invoices/overdue");
+    return response.data;
+  },
+  generatePDF: (id) => api.get(`/invoices/${id}/pdf`, { responseType: "blob" }), // Keep as-is for blob downloads
 };

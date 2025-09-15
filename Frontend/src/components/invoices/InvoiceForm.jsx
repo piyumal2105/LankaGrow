@@ -54,13 +54,16 @@ function InvoiceForm({ invoice, onClose, onSuccess }) {
   const taxAmount = subtotal * (watchTaxRate / 100);
   const totalAmount = subtotal + taxAmount;
 
-  // Load customers and products
-  const { data: customers } = useQuery("customers", () =>
-    customerService.getCustomers({})
-  );
-  const { data: products } = useQuery("products", () =>
-    productService.getProducts({})
-  );
+  // Load customers and products - Updated to v5 syntax
+  const { data: customers } = useQuery({
+    queryKey: ["customers"],
+    queryFn: () => customerService.getCustomers({}),
+  });
+
+  const { data: products } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => productService.getProducts({}),
+  });
 
   useEffect(() => {
     if (invoice) {
@@ -68,10 +71,11 @@ function InvoiceForm({ invoice, onClose, onSuccess }) {
     }
   }, [invoice, reset]);
 
-  const createMutation = useMutation(invoiceService.createInvoice, {
+  const createMutation = useMutation({
+    mutationFn: invoiceService.createInvoice,
     onSuccess: () => {
       toast.success("Invoice created successfully");
-      queryClient.invalidateQueries("invoices");
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       onSuccess();
     },
     onError: (error) => {
@@ -79,21 +83,17 @@ function InvoiceForm({ invoice, onClose, onSuccess }) {
     },
   });
 
-  const updateMutation = useMutation(
-    (data) => invoiceService.updateInvoice(invoice._id, data),
-    {
-      onSuccess: () => {
-        toast.success("Invoice updated successfully");
-        queryClient.invalidateQueries("invoices");
-        onSuccess();
-      },
-      onError: (error) => {
-        toast.error(
-          error.response?.data?.message || "Failed to update invoice"
-        );
-      },
-    }
-  );
+  const updateMutation = useMutation({
+    mutationFn: (data) => invoiceService.updateInvoice(invoice._id, data),
+    onSuccess: () => {
+      toast.success("Invoice updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      onSuccess();
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || "Failed to update invoice");
+    },
+  });
 
   const onSubmit = (data) => {
     const invoiceData = {
