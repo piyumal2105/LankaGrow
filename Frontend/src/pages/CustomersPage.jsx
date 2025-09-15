@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Menu, Plus, Search, Filter, Users } from "lucide-react";
 import Sidebar from "../components/common/Sidebar";
 import CustomerList from "../components/customers/CustomerList";
@@ -18,29 +19,101 @@ function CustomersPage() {
   const [selectedType, setSelectedType] = useState("");
   const [showAnalytics, setShowAnalytics] = useState(false);
 
+  // Add URL parameter handling
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterParam = searchParams.get("filter");
+
   const debouncedSearch = useDebounce(searchTerm, 300);
 
+  // Handle URL filter parameter
+  useEffect(() => {
+    if (filterParam === "vip-customers") {
+      // You can optionally set some visual indicator that we're filtering
+      // or leave the filters as they are since we'll handle this in the query
+    }
+  }, [filterParam]);
+
   const {
-    data: customers,
+    data: customersResponse,
     isLoading,
+    error,
     refetch,
   } = useQuery({
     queryKey: [
       "customers",
-      { search: debouncedSearch, customerType: selectedType },
+      {
+        search: debouncedSearch,
+        customerType: selectedType,
+        filter: filterParam, // Include the URL filter parameter
+      },
     ],
     queryFn: () =>
       customerService.getCustomers({
         search: debouncedSearch,
         customerType: selectedType,
+        filter: filterParam, // Pass filter to the service
       }),
-    placeholderData: keepPreviousData,
   });
 
-  const { data: topCustomers } = useQuery({
+  const { data: topCustomersResponse } = useQuery({
     queryKey: ["top-customers"],
     queryFn: customerService.getTopCustomers,
   });
+
+  // Debug logging
+  console.log("Customers response:", customersResponse);
+  console.log("Top customers response:", topCustomersResponse);
+  console.log("Error:", error);
+  console.log("Filter param:", filterParam);
+
+  // Safely extract the customers array from the response
+  const getCustomersArray = () => {
+    if (!customersResponse) return [];
+
+    // Handle different API response structures
+    if (Array.isArray(customersResponse)) {
+      return customersResponse;
+    }
+
+    if (customersResponse.data && Array.isArray(customersResponse.data)) {
+      return customersResponse.data;
+    }
+
+    if (
+      customersResponse.customers &&
+      Array.isArray(customersResponse.customers)
+    ) {
+      return customersResponse.customers;
+    }
+
+    // If none of the above, return empty array
+    console.warn("Unexpected customers response structure:", customersResponse);
+    return [];
+  };
+
+  const getTopCustomersArray = () => {
+    if (!topCustomersResponse) return [];
+
+    if (Array.isArray(topCustomersResponse)) {
+      return topCustomersResponse;
+    }
+
+    if (topCustomersResponse.data && Array.isArray(topCustomersResponse.data)) {
+      return topCustomersResponse.data;
+    }
+
+    return [];
+  };
+
+  let customers = getCustomersArray();
+  const topCustomers = getTopCustomersArray();
+
+  // Client-side filtering for VIP customers if backend doesn't support it
+  if (filterParam === "vip-customers" && customers.length > 0) {
+    customers = customers.filter(
+      (customer) => customer.totalPurchases > 100000
+    );
+  }
 
   const handleCreateCustomer = () => {
     setEditingCustomer(null);
@@ -58,13 +131,53 @@ function CustomersPage() {
     refetch();
   };
 
+  // Clear URL filter when user changes other filters
+  const handleTypeChange = (value) => {
+    setSelectedType(value === "All Types" ? "" : value);
+    // Clear the URL filter when user manually changes filters
+    if (filterParam) {
+      setSearchParams({});
+    }
+  };
+
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    // Clear the URL filter when user manually searches
+    if (filterParam && value) {
+      setSearchParams({});
+    }
+  };
+
   const customerTypes = ["All Types", "individual", "business"];
 
+  // Handle error state
+  if (error) {
+    return (
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:ml-80">
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Failed to Load Customers
+              </h2>
+              <p className="text-gray-600 mb-4">
+                {error.message || "Something went wrong"}
+              </p>
+              <Button onClick={refetch}>Try Again</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:ml-80">
         {/* Header */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -79,6 +192,11 @@ function CustomersPage() {
                 <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
                 <p className="text-gray-600">
                   Manage your customer relationships with AI insights
+                  {filterParam === "vip-customers" && (
+                    <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
+                      Showing VIP Customers
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -102,8 +220,8 @@ function CustomersPage() {
           </div>
         </header>
 
-        {/* Top Customers Summary */}
-        {topCustomers?.data?.length > 0 && (
+        {/* Top Customers Summary - hide when already filtering */}
+        {!filterParam && topCustomers.length > 0 && (
           <div className="bg-blue-50 border-b border-blue-200 px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -111,7 +229,7 @@ function CustomersPage() {
                   Top Customers This Month
                 </h3>
                 <div className="flex items-center space-x-6 mt-2">
-                  {topCustomers.data.slice(0, 3).map((customer) => (
+                  {topCustomers.slice(0, 3).map((customer) => (
                     <div
                       key={customer._id}
                       className="flex items-center space-x-2"
@@ -137,6 +255,18 @@ function CustomersPage() {
           </div>
         )}
 
+        {/* Clear filter button when filtering */}
+        {filterParam && (
+          <div className="px-6 py-2">
+            <button
+              onClick={() => setSearchParams({})}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              ← Clear filter and show all customers
+            </button>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -147,7 +277,7 @@ function CustomersPage() {
                 type="text"
                 placeholder="Search customers..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -156,11 +286,7 @@ function CustomersPage() {
             <div className="relative">
               <select
                 value={selectedType}
-                onChange={(e) =>
-                  setSelectedType(
-                    e.target.value === "All Types" ? "" : e.target.value
-                  )
-                }
+                onChange={(e) => handleTypeChange(e.target.value)}
                 className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 {customerTypes.map((type) => (
@@ -181,7 +307,7 @@ function CustomersPage() {
         {/* Main content */}
         <main className="flex-1 overflow-auto p-6">
           <CustomerList
-            customers={customers?.data || []}
+            customers={customers}
             isLoading={isLoading}
             onEdit={handleEditCustomer}
             onRefresh={refetch}

@@ -20,7 +20,10 @@ function CustomerList({ customers, isLoading, onEdit, onRefresh }) {
     );
   }
 
-  if (customers.length === 0) {
+  // Ensure customers is always an array
+  const customerArray = Array.isArray(customers) ? customers : [];
+
+  if (customerArray.length === 0) {
     return (
       <div className="text-center py-12">
         <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -36,7 +39,7 @@ function CustomerList({ customers, isLoading, onEdit, onRefresh }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {customers.map((customer, index) => (
+      {customerArray.map((customer, index) => (
         <motion.div
           key={customer._id}
           initial={{ opacity: 0, y: 20 }}
